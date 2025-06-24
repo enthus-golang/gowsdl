@@ -25,6 +25,42 @@ import (
 
 const maxRecursion uint8 = 20
 
+// WSDLError represents an error that occurred during WSDL processing
+type WSDLError struct {
+	Op   string // operation that failed
+	Path string // file path or URL
+	Err  error  // underlying error
+}
+
+func (e *WSDLError) Error() string {
+	if e.Path != "" {
+		return fmt.Sprintf("wsdl %s %q: %v", e.Op, e.Path, e.Err)
+	}
+	return fmt.Sprintf("wsdl %s: %v", e.Op, e.Err)
+}
+
+func (e *WSDLError) Unwrap() error {
+	return e.Err
+}
+
+// SchemaError represents an error that occurred during XSD schema processing
+type SchemaError struct {
+	Op     string // operation that failed
+	Schema string // schema location or reference
+	Err    error  // underlying error
+}
+
+func (e *SchemaError) Error() string {
+	if e.Schema != "" {
+		return fmt.Sprintf("schema %s %q: %v", e.Op, e.Schema, e.Err)
+	}
+	return fmt.Sprintf("schema %s: %v", e.Op, e.Err)
+}
+
+func (e *SchemaError) Unwrap() error {
+	return e.Err
+}
+
 // GoWSDL defines the struct for WSDL generator.
 type GoWSDL struct {
 	loc                   *Location
@@ -104,7 +140,11 @@ func downloadFile(ctx context.Context, url string, httpConfig *HTTPClientConfig)
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("received response code %d from %s", resp.StatusCode, url)
+		return nil, &WSDLError{
+			Op:   "download",
+			Path: url,
+			Err:  fmt.Errorf("received HTTP %d %s", resp.StatusCode, http.StatusText(resp.StatusCode)),
+		}
 	}
 
 	// Limit response size
@@ -200,64 +240,97 @@ func (g *GoWSDL) StartWithContext(ctx context.Context) (map[string][]byte, error
 	}
 
 	var wg sync.WaitGroup
-
+	var mu sync.Mutex
+	errChan := make(chan error, 5) // Buffer for all goroutines
+	
+	// Generate header
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var err error
-
-		gocode["header"], err = g.genHeader()
+		data, err := g.genHeader()
 		if err != nil {
-			log.Println(err)
+			errChan <- fmt.Errorf("generating header: %w", err)
+			return
 		}
+		mu.Lock()
+		gocode["header"] = data
+		mu.Unlock()
 	}()
 
+	// Generate types
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var err error
-
-		gocode["types"], err = g.genTypes()
+		data, err := g.genTypes()
 		if err != nil {
-			log.Println(err)
+			errChan <- fmt.Errorf("generating types: %w", err)
+			return
 		}
+		mu.Lock()
+		gocode["types"] = data
+		mu.Unlock()
 	}()
 
+	// Generate operations
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var err error
-
-		gocode["operations"], err = g.genOperations()
+		data, err := g.genOperations()
 		if err != nil {
-			log.Println(err)
+			errChan <- fmt.Errorf("generating operations: %w", err)
+			return
 		}
+		mu.Lock()
+		gocode["operations"] = data
+		mu.Unlock()
 	}()
 
+	// Generate server
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var err error
-
-		gocode["server"], err = g.genServer()
+		data, err := g.genServer()
 		if err != nil {
-			log.Println(err)
+			errChan <- fmt.Errorf("generating server: %w", err)
+			return
 		}
+		mu.Lock()
+		gocode["server"] = data
+		mu.Unlock()
 	}()
 
+	// Generate server header
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var err error
-
-		gocode["server_header"], err = g.genServerHeader()
+		data, err := g.genServerHeader()
 		if err != nil {
-			log.Println(err)
+			errChan <- fmt.Errorf("generating server header: %w", err)
+			return
 		}
+		mu.Lock()
+		gocode["server_header"] = data
+		mu.Unlock()
 	}()
 
-
+	// Wait for all goroutines to finish
 	wg.Wait()
+	close(errChan)
+
+	// Collect any errors
+	var errors []error
+	for err := range errChan {
+		errors = append(errors, err)
+	}
+	
+	// If any errors occurred, return them
+	if len(errors) > 0 {
+		// Combine multiple errors into a single error
+		if len(errors) == 1 {
+			return nil, errors[0]
+		}
+		return nil, fmt.Errorf("multiple errors during code generation: %v", errors)
+	}
 
 	gocode["server_wsdl"] = []byte("var wsdl = `" + string(g.rawWSDL) + "`")
 
@@ -284,20 +357,32 @@ func (g *GoWSDL) fetchFile(ctx context.Context, loc *Location) (data []byte, err
 func (g *GoWSDL) unmarshal(ctx context.Context) error {
 	data, err := g.fetchFile(ctx, g.loc)
 	if err != nil {
-		return err
+		return &WSDLError{
+			Op:   "fetch",
+			Path: g.loc.String(),
+			Err:  err,
+		}
 	}
 
 	g.wsdl = new(WSDL)
 	err = xml.Unmarshal(data, g.wsdl)
 	if err != nil {
-		return err
+		return &WSDLError{
+			Op:   "parse",
+			Path: g.loc.String(),
+			Err:  fmt.Errorf("failed to unmarshal WSDL: %w", err),
+		}
 	}
 	g.rawWSDL = data
 
 	for _, schema := range g.wsdl.Types.Schemas {
 		err = g.resolveXSDExternals(ctx, schema, g.loc)
 		if err != nil {
-			return err
+			return &WSDLError{
+				Op:   "resolve_schemas",
+				Path: g.loc.String(),
+				Err:  err,
+			}
 		}
 	}
 
@@ -308,7 +393,11 @@ func (g *GoWSDL) resolveXSDExternals(ctx context.Context, schema *XSDSchema, loc
 	download := func(base *Location, ref string) error {
 		location, err := base.Parse(ref)
 		if err != nil {
-			return err
+			return &SchemaError{
+				Op:     "parse_reference",
+				Schema: ref,
+				Err:    err,
+			}
 		}
 		schemaKey := location.String()
 		if g.resolvedXSDExternals[location.String()] {
@@ -321,14 +410,22 @@ func (g *GoWSDL) resolveXSDExternals(ctx context.Context, schema *XSDSchema, loc
 
 		var data []byte
 		if data, err = g.fetchFile(ctx, location); err != nil {
-			return err
+			return &SchemaError{
+				Op:     "fetch",
+				Schema: location.String(),
+				Err:    err,
+			}
 		}
 
 		newschema := new(XSDSchema)
 
 		err = xml.Unmarshal(data, newschema)
 		if err != nil {
-			return err
+			return &SchemaError{
+				Op:     "parse",
+				Schema: location.String(),
+				Err:    fmt.Errorf("failed to unmarshal XSD schema: %w", err),
+			}
 		}
 
 		if (len(newschema.Includes) > 0 || len(newschema.Imports) > 0) &&
@@ -337,7 +434,11 @@ func (g *GoWSDL) resolveXSDExternals(ctx context.Context, schema *XSDSchema, loc
 
 			err = g.resolveXSDExternals(ctx, newschema, location)
 			if err != nil {
-				return err
+				return &SchemaError{
+					Op:     "resolve_nested",
+					Schema: location.String(),
+					Err:    err,
+				}
 			}
 		}
 
