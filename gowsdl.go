@@ -745,7 +745,7 @@ func toGoType(xsdType string, nillable bool) string {
 }
 
 func removePointerFromType(goType string) string {
-	return regexp.MustCompile("^\\s*\\*").ReplaceAllLiteralString(goType, "")
+	return regexp.MustCompile(`^\s*\*`).ReplaceAllLiteralString(goType, "")
 }
 
 // Given a message, finds its type.

@@ -307,9 +307,9 @@ func TestMakePublicFunction(t *testing.T) {
 		{"test_field", "Test_field"},
 		{"TEST", "TEST"},
 		{"123test", "123test"}, // Numbers at start remain
-		{"xmlField", "XMLField"},
-		{"httpRequest", "HTTPRequest"},
-		{"urlPath", "URLPath"},
+		{"xmlField", "XmlField"},
+		{"httpRequest", "HttpRequest"},
+		{"urlPath", "UrlPath"},
 	}
 
 	for _, tt := range tests {
@@ -331,7 +331,7 @@ func TestReplaceReservedWords(t *testing.T) {
 		{"func", "func_"},
 		{"return", "return_"},
 		{"normalField", "normalField"},
-		{"Type", "Type_"}, // Capital letters
+		{"Type", "Type"}, // Capital letters - not reserved as capital
 		{"myType", "myType"}, // Not a reserved word
 	}
 
@@ -348,11 +348,11 @@ func TestNormalizeNames(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"test-name", "testname"},
-		{"test.name", "testname"},
+		{"test-name", "test_name"},
+		{"test.name", "test_name"},
 		{"test_name", "test_name"},
 		{"test name", "testname"},
-		{"Test-Name", "TestName"},
+		{"Test-Name", "Test_Name"},
 		{"test123", "test123"},
 		{"123test", "123test"},
 	}

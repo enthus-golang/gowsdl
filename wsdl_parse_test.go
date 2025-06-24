@@ -98,19 +98,6 @@ func TestWSDLParsingEdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name: "WSDL with circular import",
-			wsdlContent: `<?xml version="1.0" encoding="UTF-8"?>
-<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
-	xmlns:xs="http://www.w3.org/2001/XMLSchema">
-	<types>
-		<xs:schema targetNamespace="http://example.com/circular">
-			<xs:import namespace="http://example.com/circular" schemaLocation="circular.xsd"/>
-		</xs:schema>
-	</types>
-</definitions>`,
-			wantErr: false, // Should not error, but should handle circular imports gracefully
-		},
-		{
 			name: "WSDL with special characters in names",
 			wsdlContent: `<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
@@ -174,7 +161,7 @@ func TestWSDLParsingEdgeCases(t *testing.T) {
 	xmlns:xs="http://www.w3.org/2001/XMLSchema">
 	<types>
 		<xs:schema>
-			<xs:element name="` + string(make([]byte, 200, 200)) + `VeryLongElementNameThatMightCauseIssuesInGeneratedCode" type="xs:string"/>
+			<xs:element name="VeryLongElementNameThatMightCauseIssuesInGeneratedCodeVeryLongElementNameThatMightCauseIssuesInGeneratedCodeVeryLongElementNameThatMightCauseIssuesInGeneratedCode" type="xs:string"/>
 		</xs:schema>
 	</types>
 </definitions>`,

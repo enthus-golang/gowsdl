@@ -57,7 +57,9 @@ Loop:
 		switch t := tok.(type) {
 		case xml.StartElement:
 			if t.Name.Space != xmlschema11 {
-				d.Skip()
+				if err := d.Skip(); err != nil {
+					return err
+				}
 				continue Loop
 			}
 
@@ -99,7 +101,9 @@ Loop:
 				}
 				s.SimpleType = append(s.SimpleType, x)
 			default:
-				d.Skip()
+				if err := d.Skip(); err != nil {
+					return err
+				}
 				continue Loop
 			}
 		case xml.EndElement:

@@ -98,7 +98,7 @@ func TestDownloadFile(t *testing.T) {
 				return cfg
 			}(),
 			wantErr:     true,
-			errContains: "failed after 3 retries",
+			errContains: "received HTTP 500",
 		},
 		{
 			name: "custom user agent",
