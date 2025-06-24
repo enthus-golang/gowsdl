@@ -138,7 +138,9 @@ func (e *mtomEncoder) Encode(v interface{}) error {
 		if partWriter, err = e.writer.CreatePart(h); err != nil {
 			return err
 		}
-		partWriter.Write(*pkg.content)
+		if _, err := partWriter.Write(*pkg.content); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -166,7 +168,6 @@ func getBinaryFields(data interface{}, fields *[]reflect.Value) {
 				getBinaryFields(f.Interface(), fields)
 			}
 		}
-		break
 	case reflect.Slice:
 		for i := 0; i < v.Len(); i++ {
 			e := v.Index(i)
@@ -206,7 +207,7 @@ func getMtomHeader(contentType string) (string, error) {
 	if strings.HasPrefix(mediaType, "multipart/") {
 		boundary, ok := params["boundary"]
 		if !ok || boundary == "" {
-			return "", fmt.Errorf("Invalid multipart boundary: %s", boundary)
+			return "", fmt.Errorf("invalid multipart boundary: %s", boundary)
 		}
 
 		cType, ok := params["type"]
@@ -217,7 +218,7 @@ func getMtomHeader(contentType string) (string, error) {
 
 		startInfo, ok := params["start-info"]
 		if !ok || (!strings.Contains(startInfo, "application/soap+xml") && !strings.Contains(startInfo, "text/xml")) {
-			return "", fmt.Errorf(`Expected param start-info to contain "application/soap+xml" or "text/xml", got %s`, startInfo)
+			return "", fmt.Errorf(`expected param start-info to contain "application/soap+xml" or "text/xml", got %s`, startInfo)
 		}
 		return boundary, nil
 	}
@@ -250,7 +251,7 @@ func (d *mtomDecoder) Decode(v interface{}) error {
 		} else {
 			contentID := p.Header.Get("Content-Id")
 			if contentID == "" {
-				return errors.New("Invalid multipart content ID")
+				return errors.New("invalid multipart content ID")
 			}
 			content, err := io.ReadAll(p)
 			if err != nil {

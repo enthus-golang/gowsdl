@@ -1,0 +1,138 @@
+name: Go
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions: write-all
+
+jobs:
+  golangci:
+    name: Go Lint
+    runs-on: ubuntu-latest
+    # Skip job if PR is draft or has WIP in title
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && !contains(github.event.pull_request.title, 'WIP'))
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+          cache: true  # Enable built-in cache, but we'll handle GOCACHE manually
+
+      - name: Cache Go build cache only (for test performance)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-go-lint-cache-${{ hashFiles('**/go.mod', '**/go.sum') }}-${{ hashFiles('.golangci.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-go-lint-cache-${{ hashFiles('**/go.mod', '**/go.sum') }}-
+            ${{ runner.os }}-go-lint-cache-
+
+      - name: Set up golangci-lint cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/golangci-lint
+          key: ${{ runner.os }}-golangci-lint-${{ hashFiles('**/go.mod', '**/go.sum') }}-${{ hashFiles('.golangci.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-golangci-lint-${{ hashFiles('**/go.mod', '**/go.sum') }}-
+            ${{ runner.os }}-golangci-lint-
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          only-new-issues: false
+          version: latest
+          skip-cache: false  # Disable built-in cache to use our custom cache
+          problem-matchers: true
+
+  test:
+    name: Go Test
+    runs-on: ubuntu-latest
+    # Skip job if PR is draft or has WIP in title
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && !contains(github.event.pull_request.title, 'WIP'))
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+          cache: true  # Enable built-in cache, but we'll handle GOCACHE manually
+
+      - name: Download go modules (always fresh)
+        run: go mod download
+
+      - name: Cache Go build cache only (for test performance)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-go-test-cache-${{ hashFiles('**/go.mod', '**/go.sum') }}-${{ hashFiles('**/*_test.go') }}
+          restore-keys: |
+            ${{ runner.os }}-go-test-cache-${{ hashFiles('**/go.mod', '**/go.sum') }}-
+            ${{ runner.os }}-go-test-cache-
+
+      - name: Cache test binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/*.test
+            **/testdata
+          key: ${{ runner.os }}-go-test-binaries-${{ hashFiles('**/go.mod', '**/go.sum') }}-${{ hashFiles('**/*_test.go') }}
+          restore-keys: |
+            ${{ runner.os }}-go-test-binaries-${{ hashFiles('**/*_test.go', '**/go.mod') }}-
+            ${{ runner.os }}-go-test-binaries-
+
+      - name: Test
+        run: go test -coverprofile=cover.out ./...
+
+      # Download master branch breakdown for coverage comparison
+      - name: download artifact (master.breakdown)
+        id: download-master-breakdown
+        uses: dawidd6/action-download-artifact@v11
+        if: github.event_name == 'pull_request'
+        with:
+          branch: master
+          workflow_conclusion: success
+          name: master.breakdown
+          if_no_artifact_found: warn
+
+      - name: check test coverage
+        id: coverage
+        uses: vladopajic/go-test-coverage@v2
+        with:
+          profile: cover.out
+          git-token: ${{ github.ref_name == 'master' && secrets.GITHUB_TOKEN || '' }}
+          git-branch: badges
+          breakdown-file-name: ${{ github.ref_name == 'master' && 'master.breakdown' || '' }}
+          diff-base-breakdown-file-name: ${{ steps.download-master-breakdown.outputs.found_artifact == 'true' && 'master.breakdown' || '' }}
+
+      # Post coverage report as comment
+      - name: post coverage report
+        if: github.event.pull_request.number
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-tag: coverage-report
+          pr-number: ${{ github.event.pull_request.number }}
+          message: |
+            go-test-coverage report:
+            ```
+            ${{ fromJSON(steps.coverage.outputs.report) }}
+            ```
+
+      # Upload master branch breakdown for future comparison
+      - name: upload artifact (master.breakdown)
+        uses: actions/upload-artifact@v4
+        if: github.ref_name == 'master'
+        with:
+          name: master.breakdown
+          path: master.breakdown
+          if-no-files-found: error

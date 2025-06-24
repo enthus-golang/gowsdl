@@ -97,11 +97,15 @@ Loop:
 					}
 					w.Service = append(w.Service, x)
 				default:
-					d.Skip()
+					if err := d.Skip(); err != nil {
+						return err
+					}
 					continue Loop
 				}
 			default:
-				d.Skip()
+				if err := d.Skip(); err != nil {
+					return err
+				}
 				continue Loop
 			}
 		case xml.EndElement:

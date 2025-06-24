@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: ./go.mod
+
+    - name: Get version
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Build binaries
+      run: |
+        # Build for multiple platforms
+        GOOS=linux GOARCH=amd64 go build -o gowsdl-linux-amd64 ./cmd/gowsdl
+        GOOS=linux GOARCH=arm64 go build -o gowsdl-linux-arm64 ./cmd/gowsdl
+        GOOS=darwin GOARCH=amd64 go build -o gowsdl-darwin-amd64 ./cmd/gowsdl
+        GOOS=darwin GOARCH=arm64 go build -o gowsdl-darwin-arm64 ./cmd/gowsdl
+        GOOS=windows GOARCH=amd64 go build -o gowsdl-windows-amd64.exe ./cmd/gowsdl
+        GOOS=windows GOARCH=arm64 go build -o gowsdl-windows-arm64.exe ./cmd/gowsdl
+
+        # Create archives
+        tar czf gowsdl-${{ steps.get_version.outputs.VERSION }}-linux-amd64.tar.gz gowsdl-linux-amd64
+        tar czf gowsdl-${{ steps.get_version.outputs.VERSION }}-linux-arm64.tar.gz gowsdl-linux-arm64
+        tar czf gowsdl-${{ steps.get_version.outputs.VERSION }}-darwin-amd64.tar.gz gowsdl-darwin-amd64
+        tar czf gowsdl-${{ steps.get_version.outputs.VERSION }}-darwin-arm64.tar.gz gowsdl-darwin-arm64
+        zip gowsdl-${{ steps.get_version.outputs.VERSION }}-windows-amd64.zip gowsdl-windows-amd64.exe
+        zip gowsdl-${{ steps.get_version.outputs.VERSION }}-windows-arm64.zip gowsdl-windows-arm64.exe
+
+        # Generate checksums
+        sha256sum gowsdl-*.tar.gz gowsdl-*.zip > checksums.txt
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          gowsdl-*.tar.gz
+          gowsdl-*.zip
+          checksums.txt
+        generate_release_notes: true
+        draft: false
+        prerelease: false
