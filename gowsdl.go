@@ -6,13 +6,11 @@ package gowsdl
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -37,6 +35,7 @@ type GoWSDL struct {
 	resolvedXSDExternals  map[string]bool
 	currentRecursionLevel uint8
 	currentNamespace      string
+	httpConfig            *HTTPClientConfig
 }
 
 // Method setNS sets (and returns) the currently active XML namespace.
@@ -60,37 +59,91 @@ func init() {
 	}
 }
 
-var timeout = time.Duration(30 * time.Second)
+// downloadFile downloads a file from the given URL using the provided HTTP configuration
+func downloadFile(url string, httpConfig *HTTPClientConfig) ([]byte, error) {
+	client := httpConfig.Build()
 
-func dialTimeout(network, addr string) (net.Conn, error) {
-	return net.DialTimeout(network, addr, timeout)
-}
-
-func downloadFile(url string, ignoreTLS bool) ([]byte, error) {
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: ignoreTLS,
-		},
-		Dial: dialTimeout,
-	}
-	client := &http.Client{Transport: tr}
-
-	resp, err := client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set user agent
+	if httpConfig.UserAgent != "" {
+		req.Header.Set("User-Agent", httpConfig.UserAgent)
+	}
+
+	var resp *http.Response
+	var lastErr error
+
+	// Retry logic
+	for attempt := 0; attempt <= httpConfig.MaxRetries; attempt++ {
+		if attempt > 0 {
+			time.Sleep(httpConfig.RetryDelay)
+		}
+
+		resp, err = client.Do(req)
+		if err == nil && resp.StatusCode < 500 {
+			break
+		}
+		lastErr = err
+		if resp != nil {
+			resp.Body.Close()
+		}
+	}
+
+	if lastErr != nil {
+		return nil, fmt.Errorf("failed after %d retries: %w", httpConfig.MaxRetries+1, lastErr)
 	}
 
 	defer resp.Body.Close()
+
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("Received response code %d", resp.StatusCode)
+		return nil, fmt.Errorf("received response code %d from %s", resp.StatusCode, url)
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	// Limit response size
+	limitedReader := io.LimitReader(resp.Body, httpConfig.MaxResponseSize)
+	data, err := io.ReadAll(limitedReader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	return data, nil
+}
+
+// NewGoWSDLWithConfig initializes WSDL generator with custom HTTP configuration.
+func NewGoWSDLWithConfig(file, pkg string, httpConfig *HTTPClientConfig, exportAllTypes bool) (*GoWSDL, error) {
+	file = strings.TrimSpace(file)
+	if file == "" {
+		return nil, errors.New("WSDL file is required to generate Go proxy")
+	}
+
+	pkg = strings.TrimSpace(pkg)
+	if pkg == "" {
+		pkg = "myservice"
+	}
+	makePublicFn := func(id string) string { return id }
+	if exportAllTypes {
+		makePublicFn = makePublic
+	}
+
+	r, err := ParseLocation(file)
 	if err != nil {
 		return nil, err
 	}
 
-	return data, nil
+	if httpConfig == nil {
+		httpConfig = DefaultHTTPClientConfig()
+	}
+
+	return &GoWSDL{
+		loc:          r,
+		pkg:          pkg,
+		ignoreTLS:    httpConfig.InsecureSkipVerify,
+		makePublicFn: makePublicFn,
+		httpConfig:   httpConfig,
+	}, nil
 }
 
 // NewGoWSDL initializes WSDL generator.
@@ -114,11 +167,16 @@ func NewGoWSDL(file, pkg string, ignoreTLS bool, exportAllTypes bool) (*GoWSDL, 
 		return nil, err
 	}
 
+	// Create default HTTP config for backward compatibility
+	httpConfig := DefaultHTTPClientConfig()
+	httpConfig.InsecureSkipVerify = ignoreTLS
+
 	return &GoWSDL{
 		loc:          r,
 		pkg:          pkg,
 		ignoreTLS:    ignoreTLS,
 		makePublicFn: makePublicFn,
+		httpConfig:   httpConfig,
 	}, nil
 }
 
@@ -195,7 +253,7 @@ func (g *GoWSDL) fetchFile(loc *Location) (data []byte, err error) {
 		data, err = os.ReadFile(loc.f)
 	} else {
 		log.Println("Downloading", "file", loc.u.String())
-		data, err = downloadFile(loc.u.String(), g.ignoreTLS)
+		data, err = downloadFile(loc.u.String(), g.httpConfig)
 	}
 	return
 }

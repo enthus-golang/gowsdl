@@ -48,12 +48,14 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"go/format"
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	gen "github.com/hooklift/gowsdl"
 )
@@ -70,6 +72,18 @@ var outFile = flag.String("o", "myservice.go", "File where the generated code wi
 var dir = flag.String("d", "./", "Directory under which package directory will be created")
 var insecure = flag.Bool("i", false, "Skips TLS Verification")
 var makePublic = flag.Bool("make-public", true, "Make the generated types public/exported")
+
+// HTTP client configuration flags
+var httpTimeout = flag.Duration("http-timeout", 30*time.Second, "Timeout for HTTP requests")
+var httpRetries = flag.Int("http-retries", 0, "Number of retries for failed requests")
+var httpRetryDelay = flag.Duration("http-retry-delay", 1*time.Second, "Delay between retries")
+var httpRateLimit = flag.Int("http-rate-limit", 0, "Rate limit for HTTP requests per second (0 = no limit)")
+var httpUserAgent = flag.String("http-user-agent", "gowsdl/1.0", "User-Agent header for requests")
+var httpProxy = flag.String("http-proxy", "", "HTTP proxy URL")
+var tlsCACert = flag.String("tls-ca-cert", "", "Path to CA certificate file")
+var tlsClientCert = flag.String("tls-client-cert", "", "Path to client certificate file (requires -tls-client-key)")
+var tlsClientKey = flag.String("tls-client-key", "", "Path to client key file (requires -tls-client-cert)")
+var tlsMinVersion = flag.String("tls-min-version", "1.2", "Minimum TLS version (1.0, 1.1, 1.2, 1.3)")
 
 func init() {
 	log.SetFlags(0)
@@ -102,8 +116,55 @@ func main() {
 		log.Fatalln("Output file cannot be the same WSDL file")
 	}
 
+	// Create HTTP client configuration
+	httpConfig := gen.DefaultHTTPClientConfig()
+	httpConfig.Timeout = *httpTimeout
+	httpConfig.MaxRetries = *httpRetries
+	httpConfig.RetryDelay = *httpRetryDelay
+	httpConfig.RateLimitPerSecond = *httpRateLimit
+	httpConfig.UserAgent = *httpUserAgent
+	httpConfig.ProxyURL = *httpProxy
+	httpConfig.InsecureSkipVerify = *insecure
+
+	// Configure TLS
+	if *tlsMinVersion != "" {
+		var minVersion uint16
+		switch *tlsMinVersion {
+		case "1.0":
+			minVersion = tls.VersionTLS10
+		case "1.1":
+			minVersion = tls.VersionTLS11
+		case "1.2":
+			minVersion = tls.VersionTLS12
+		case "1.3":
+			minVersion = tls.VersionTLS13
+		default:
+			log.Fatalf("Invalid TLS version: %s", *tlsMinVersion)
+		}
+		if httpConfig.TLSConfig == nil {
+			httpConfig.TLSConfig = &tls.Config{}
+		}
+		httpConfig.TLSConfig.MinVersion = minVersion
+	}
+
+	// Add CA certificate if provided
+	if *tlsCACert != "" {
+		if _, err := httpConfig.WithCACert(*tlsCACert); err != nil {
+			log.Fatalf("Failed to load CA certificate: %v", err)
+		}
+	}
+
+	// Add client certificate if provided
+	if *tlsClientCert != "" && *tlsClientKey != "" {
+		if _, err := httpConfig.WithClientCert(*tlsClientCert, *tlsClientKey); err != nil {
+			log.Fatalf("Failed to load client certificate: %v", err)
+		}
+	} else if *tlsClientCert != "" || *tlsClientKey != "" {
+		log.Fatalln("Both -tls-client-cert and -tls-client-key must be provided together")
+	}
+
 	// load wsdl
-	gowsdl, err := gen.NewGoWSDL(wsdlPath, *pkg, *insecure, *makePublic)
+	gowsdl, err := gen.NewGoWSDLWithConfig(wsdlPath, *pkg, httpConfig, *makePublic)
 	if err != nil {
 		log.Fatalln(err)
 	}
