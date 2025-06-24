@@ -6,6 +6,7 @@ package gowsdl
 
 import (
 	"bytes"
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -60,10 +61,10 @@ func init() {
 }
 
 // downloadFile downloads a file from the given URL using the provided HTTP configuration
-func downloadFile(url string, httpConfig *HTTPClientConfig) ([]byte, error) {
+func downloadFile(ctx context.Context, url string, httpConfig *HTTPClientConfig) ([]byte, error) {
 	client := httpConfig.Build()
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -83,6 +84,10 @@ func downloadFile(url string, httpConfig *HTTPClientConfig) ([]byte, error) {
 		}
 
 		resp, err = client.Do(req)
+		// Check for context cancellation
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		if err == nil && resp.StatusCode < 500 {
 			break
 		}
@@ -180,12 +185,11 @@ func NewGoWSDL(file, pkg string, ignoreTLS bool, exportAllTypes bool) (*GoWSDL, 
 	}, nil
 }
 
-// Start initiaties the code generation process by starting two goroutines: one
-// to generate types and another one to generate operations.
-func (g *GoWSDL) Start() (map[string][]byte, error) {
+// StartWithContext initiates the code generation process with context support.
+func (g *GoWSDL) StartWithContext(ctx context.Context) (map[string][]byte, error) {
 	gocode := make(map[string][]byte)
 
-	err := g.unmarshal()
+	err := g.unmarshal(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -202,9 +206,20 @@ func (g *GoWSDL) Start() (map[string][]byte, error) {
 		defer wg.Done()
 		var err error
 
+		gocode["header"], err = g.genHeader()
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		var err error
+
 		gocode["types"], err = g.genTypes()
 		if err != nil {
-			log.Println("genTypes", "error", err)
+			log.Println(err)
 		}
 	}()
 
@@ -230,36 +245,44 @@ func (g *GoWSDL) Start() (map[string][]byte, error) {
 		}
 	}()
 
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		var err error
+
+		gocode["server_header"], err = g.genServerHeader()
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+
+
 	wg.Wait()
-
-	gocode["header"], err = g.genHeader()
-	if err != nil {
-		log.Println(err)
-	}
-
-	gocode["server_header"], err = g.genServerHeader()
-	if err != nil {
-		log.Println(err)
-	}
 
 	gocode["server_wsdl"] = []byte("var wsdl = `" + string(g.rawWSDL) + "`")
 
 	return gocode, nil
 }
 
-func (g *GoWSDL) fetchFile(loc *Location) (data []byte, err error) {
+// Start initiaties the code generation process by starting two goroutines: one
+// to generate types and another one to generate operations.
+func (g *GoWSDL) Start() (map[string][]byte, error) {
+	return g.StartWithContext(context.Background())
+}
+
+func (g *GoWSDL) fetchFile(ctx context.Context, loc *Location) (data []byte, err error) {
 	if loc.f != "" {
 		log.Println("Reading", "file", loc.f)
 		data, err = os.ReadFile(loc.f)
 	} else {
 		log.Println("Downloading", "file", loc.u.String())
-		data, err = downloadFile(loc.u.String(), g.httpConfig)
+		data, err = downloadFile(ctx, loc.u.String(), g.httpConfig)
 	}
 	return
 }
 
-func (g *GoWSDL) unmarshal() error {
-	data, err := g.fetchFile(g.loc)
+func (g *GoWSDL) unmarshal(ctx context.Context) error {
+	data, err := g.fetchFile(ctx, g.loc)
 	if err != nil {
 		return err
 	}
@@ -272,7 +295,7 @@ func (g *GoWSDL) unmarshal() error {
 	g.rawWSDL = data
 
 	for _, schema := range g.wsdl.Types.Schemas {
-		err = g.resolveXSDExternals(schema, g.loc)
+		err = g.resolveXSDExternals(ctx, schema, g.loc)
 		if err != nil {
 			return err
 		}
@@ -281,7 +304,7 @@ func (g *GoWSDL) unmarshal() error {
 	return nil
 }
 
-func (g *GoWSDL) resolveXSDExternals(schema *XSDSchema, loc *Location) error {
+func (g *GoWSDL) resolveXSDExternals(ctx context.Context, schema *XSDSchema, loc *Location) error {
 	download := func(base *Location, ref string) error {
 		location, err := base.Parse(ref)
 		if err != nil {
@@ -297,7 +320,7 @@ func (g *GoWSDL) resolveXSDExternals(schema *XSDSchema, loc *Location) error {
 		g.resolvedXSDExternals[schemaKey] = true
 
 		var data []byte
-		if data, err = g.fetchFile(location); err != nil {
+		if data, err = g.fetchFile(ctx, location); err != nil {
 			return err
 		}
 
@@ -312,7 +335,7 @@ func (g *GoWSDL) resolveXSDExternals(schema *XSDSchema, loc *Location) error {
 			maxRecursion > g.currentRecursionLevel {
 			g.currentRecursionLevel++
 
-			err = g.resolveXSDExternals(newschema, location)
+			err = g.resolveXSDExternals(ctx, newschema, location)
 			if err != nil {
 				return err
 			}
