@@ -91,7 +91,7 @@ jobs:
             ${{ runner.os }}-go-test-binaries-
 
       - name: Test
-        run: go test -coverprofile=cover.out ./src/...
+        run: go test -coverprofile=cover.out ./...
 
       # Download master branch breakdown for coverage comparison
       - name: download artifact (master.breakdown)
