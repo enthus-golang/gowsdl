@@ -59,7 +59,7 @@ func TestHTTPClientConfigBuild(t *testing.T) {
 	client := config.Build()
 
 	if client == nil {
-		t.Error("Expected HTTP client to be built")
+		t.Fatal("Expected HTTP client to be built")
 	}
 
 	if client.Timeout != config.Timeout {

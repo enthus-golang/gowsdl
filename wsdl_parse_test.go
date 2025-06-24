@@ -174,11 +174,13 @@ func TestWSDLParsingEdgeCases(t *testing.T) {
 			// Create temporary WSDL file
 			tempFile, err := os.CreateTemp("", "test-*.wsdl")
 			require.NoError(t, err)
-			defer os.Remove(tempFile.Name())
+			defer func() {
+				_ = os.Remove(tempFile.Name())
+			}()
 
 			_, err = tempFile.WriteString(tt.wsdlContent)
 			require.NoError(t, err)
-			tempFile.Close()
+			_ = tempFile.Close()
 
 			// Parse WSDL
 			g, err := NewGoWSDL(tempFile.Name(), "test", false, true)
@@ -206,7 +208,9 @@ func TestWSDLWithExternalSchema(t *testing.T) {
 	// Create temporary directory for test files
 	tempDir, err := os.MkdirTemp("", "wsdl-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	// Create external schema file
 	schemaContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -299,13 +303,15 @@ func BenchmarkWSDLParsing(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.Remove(tempFile.Name())
+	defer func() {
+		_ = os.Remove(tempFile.Name())
+	}()
 
 	_, err = tempFile.WriteString(wsdlContent)
 	if err != nil {
 		b.Fatal(err)
 	}
-	tempFile.Close()
+	_ = tempFile.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

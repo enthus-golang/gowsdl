@@ -227,7 +227,7 @@ func TestVboxGeneratesWithoutSyntaxErrors(t *testing.T) {
 
 		_, err = format.Source(data.Bytes())
 		if err != nil {
-			fmt.Println(string(data.Bytes()))
+			fmt.Println(data.String())
 			t.Error(err)
 		}
 	}
@@ -270,7 +270,7 @@ func TestComplexTypeGeneratedCorrectly(t *testing.T) {
 		t.Error(err)
 	}
 
-	decl, err := getTypeDeclaration(resp, "WorkerObjectIDType")
+	decl, _ := getTypeDeclaration(resp, "WorkerObjectIDType")
 
 	expected := "type WorkerObjectIDType struct"
 	re := regexp.MustCompile(expected)

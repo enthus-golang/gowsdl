@@ -51,7 +51,7 @@ type AttachmentRequest struct {
 func TestClient_Call(t *testing.T) {
 	var pingRequest = new(Ping)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		xml.NewDecoder(r.Body).Decode(pingRequest)
+		_ = xml.NewDecoder(r.Body).Decode(pingRequest)
 		rsp := `<?xml version="1.0" encoding="utf-8"?>
 		<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
 			<soap:Body>
@@ -62,7 +62,7 @@ func TestClient_Call(t *testing.T) {
 				</PingResponse>
 			</soap:Body>
 		</soap:Envelope>`
-		w.Write([]byte(rsp))
+		_, _ = w.Write([]byte(rsp))
 	}))
 	defer ts.Close()
 
@@ -122,7 +122,7 @@ func TestClient_Send_Correct_Headers(t *testing.T) {
 		client := NewClient(ts.URL, WithHTTPHeaders(test.reqHeaders))
 		req := struct{}{}
 		reply := struct{}{}
-		client.Call(test.action, req, reply)
+		_ = client.Call(test.action, req, reply)
 
 		for k, v := range test.expectedHeaders {
 			h := gotHeaders.Get(k)
@@ -184,7 +184,7 @@ func TestClient_MTOM(t *testing.T) {
 			w.Header().Set(k, v[0])
 		}
 		bodyBuf, _ := io.ReadAll(r.Body)
-		w.Write(bodyBuf)
+		_, _ = w.Write(bodyBuf)
 	}))
 	defer ts.Close()
 
@@ -247,8 +247,7 @@ func Test_SimpleNode(t *testing.T) {
   <Num>6.005</Num>
 </SimpleNode>`
 	decoder := xml.NewDecoder(strings.NewReader(input))
-	var simple interface{}
-	simple = &SimpleNode{}
+	simple := &SimpleNode{}
 	if err := decoder.Decode(&simple); err != nil {
 		t.Fatalf("error decoding: %v", err)
 	}
@@ -326,7 +325,7 @@ func Test_Client_FaultDefault(t *testing.T) {
 
 			var pingRequest = new(Ping)
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				xml.NewDecoder(r.Body).Decode(pingRequest)
+				_ = xml.NewDecoder(r.Body).Decode(pingRequest)
 				rsp := fmt.Sprintf(`
 <?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
@@ -340,7 +339,7 @@ func Test_Client_FaultDefault(t *testing.T) {
 		</soap:Fault>
 	</soap:Body>
 </soap:Envelope>`, string(data))
-				w.Write([]byte(rsp))
+				_, _ = w.Write([]byte(rsp))
 			}))
 			defer ts.Close()
 
@@ -820,7 +819,7 @@ func TestHTTPError(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(test.responseCode)
-				w.Write([]byte(test.responseBody))
+				_, _ = w.Write([]byte(test.responseBody))
 			}))
 			defer ts.Close()
 			client := NewClient(ts.URL)

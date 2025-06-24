@@ -429,7 +429,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 		XmlNS: XmlNsSoapEnv,
 	}
 
-	if s.headers != nil && len(s.headers) > 0 {
+	if len(s.headers) > 0 {
 		envelope.Header = &SOAPHeader{
 			Headers: s.headers,
 		}
@@ -499,7 +499,9 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
+	defer func() {
+		_ = res.Body.Close()
+	}()
 
 	if res.StatusCode >= 400 && res.StatusCode != 500 {
 		body, _ := io.ReadAll(res.Body)

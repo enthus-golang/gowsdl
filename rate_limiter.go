@@ -12,7 +12,7 @@ import (
 // rateLimitedTransport wraps an http.RoundTripper with rate limiting
 type rateLimitedTransport struct {
 	transport http.RoundTripper
-	limiter   <-chan time.Time
+	ticker    *time.Ticker
 }
 
 // newRateLimitedTransport creates a new rate limited transport
@@ -22,16 +22,16 @@ func newRateLimitedTransport(transport http.RoundTripper, ratePerSecond int) htt
 	}
 
 	interval := time.Second / time.Duration(ratePerSecond)
-	limiter := time.Tick(interval)
+	ticker := time.NewTicker(interval)
 
 	return &rateLimitedTransport{
 		transport: transport,
-		limiter:   limiter,
+		ticker:    ticker,
 	}
 }
 
 // RoundTrip implements the http.RoundTripper interface
 func (t *rateLimitedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	<-t.limiter // Wait for rate limit
+	<-t.ticker.C // Wait for rate limit
 	return t.transport.RoundTrip(req)
 }

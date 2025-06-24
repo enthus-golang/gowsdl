@@ -310,7 +310,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("Error closing file: %v", err)
+		}
+	}()
 
 	data := new(bytes.Buffer)
 	data.Write(gocode["header"])
@@ -346,7 +350,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("failed to create server file: %w", err)
 	}
-	defer serverFile.Close()
+	defer func() {
+		if err := serverFile.Close(); err != nil {
+			log.Printf("Error closing server file: %v", err)
+		}
+	}()
 
 	serverData := new(bytes.Buffer)
 	serverData.Write(gocode["server_header"])

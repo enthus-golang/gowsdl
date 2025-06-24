@@ -129,7 +129,7 @@ func downloadFile(ctx context.Context, url string, httpConfig *HTTPClientConfig)
 		}
 		lastErr = err
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 	}
 
@@ -137,7 +137,9 @@ func downloadFile(ctx context.Context, url string, httpConfig *HTTPClientConfig)
 		return nil, fmt.Errorf("failed after %d retries: %w", httpConfig.MaxRetries+1, lastErr)
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != 200 {
 		return nil, &WSDLError{
@@ -800,7 +802,7 @@ func (g *GoWSDL) findNameByType(name string) string {
 // TODO(c4milo): improve runtime complexity if performance turns out to be an issue.
 func (g *GoWSDL) findSOAPAction(operation, portType string) string {
 	for _, binding := range g.wsdl.Binding {
-		if strings.ToUpper(stripns(binding.Type)) != strings.ToUpper(portType) {
+		if !strings.EqualFold(stripns(binding.Type), portType) {
 			continue
 		}
 

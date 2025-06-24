@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -29,7 +30,9 @@ func main() {
 		client()
 	}()
 	go func() {
-		http.ListenAndServe(":8000", nil)
+		if err := http.ListenAndServe(":8000", nil); err != nil {
+			log.Printf("Server error: %v", err)
+		}
 	}()
 	<-done
 }

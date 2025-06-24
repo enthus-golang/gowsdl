@@ -213,11 +213,13 @@ func TestCodeGeneration(t *testing.T) {
 			// Create temporary WSDL file
 			tempFile, err := os.CreateTemp("", "codegen-test-*.wsdl")
 			require.NoError(t, err)
-			defer os.Remove(tempFile.Name())
+			defer func() {
+				_ = os.Remove(tempFile.Name())
+			}()
 
 			_, err = tempFile.WriteString(tt.wsdlContent)
 			require.NoError(t, err)
-			tempFile.Close()
+			_ = tempFile.Close()
 
 			// Generate code
 			g, err := NewGoWSDL(tempFile.Name(), "test", false, true)
@@ -280,11 +282,13 @@ func TestCodeGenerationWithNamespaces(t *testing.T) {
 
 	tempFile, err := os.CreateTemp("", "namespace-test-*.wsdl")
 	require.NoError(t, err)
-	defer os.Remove(tempFile.Name())
+	defer func() {
+		_ = os.Remove(tempFile.Name())
+	}()
 
 	_, err = tempFile.WriteString(wsdlContent)
 	require.NoError(t, err)
-	tempFile.Close()
+	_ = tempFile.Close()
 
 	g, err := NewGoWSDL(tempFile.Name(), "test", false, true)
 	require.NoError(t, err)
@@ -389,13 +393,15 @@ func BenchmarkCodeGeneration(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.Remove(tempFile.Name())
+	defer func() {
+		_ = os.Remove(tempFile.Name())
+	}()
 
 	_, err = tempFile.WriteString(wsdlContent)
 	if err != nil {
 		b.Fatal(err)
 	}
-	tempFile.Close()
+	_ = tempFile.Close()
 
 	g, err := NewGoWSDL(tempFile.Name(), "test", false, true)
 	if err != nil {
@@ -430,11 +436,13 @@ func TestStartWithContextErrorHandling(t *testing.T) {
 
 	tempFile, err := os.CreateTemp("", "error-test-*.wsdl")
 	require.NoError(t, err)
-	defer os.Remove(tempFile.Name())
+	defer func() {
+		_ = os.Remove(tempFile.Name())
+	}()
 
 	_, err = tempFile.WriteString(wsdlContent)
 	require.NoError(t, err)
-	tempFile.Close()
+	_ = tempFile.Close()
 
 	g, err := NewGoWSDL(tempFile.Name(), "test", false, true)
 	require.NoError(t, err)
@@ -460,11 +468,13 @@ func TestCodeGenerationConcurrency(t *testing.T) {
 
 	tempFile, err := os.CreateTemp("", "concurrent-test-*.wsdl")
 	require.NoError(t, err)
-	defer os.Remove(tempFile.Name())
+	defer func() {
+		_ = os.Remove(tempFile.Name())
+	}()
 
 	_, err = tempFile.WriteString(wsdlContent)
 	require.NoError(t, err)
-	tempFile.Close()
+	_ = tempFile.Close()
 
 	// Run multiple generations concurrently
 	const goroutines = 5
@@ -484,7 +494,7 @@ func TestCodeGenerationConcurrency(t *testing.T) {
 				return
 			}
 
-			if code == nil || len(code) == 0 {
+			if len(code) == 0 {
 				results <- assert.AnError
 				return
 			}
