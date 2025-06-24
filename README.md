@@ -41,4 +41,49 @@ Usage: gowsdl [options] myservice.wsdl
         Package under which code will be generated (default "myservice")
   -i    Skips TLS Verification
   -v    Shows gowsdl version
+  -use-generics
+        Generate code using Go generics (requires Go 1.18+)
   ```
+
+### Go Generics Support
+
+Starting with Go 1.18, gowsdl can generate code that uses generics for type-safe SOAP operations. This feature provides:
+
+* Type-safe SOAP clients with compile-time type checking
+* Generic result types that can handle both success responses and SOAP faults
+* Generic array types for better handling of unbounded elements
+* Backward compatibility with non-generic code generation
+
+To enable generic code generation, use the `-use-generics` flag:
+
+```bash
+gowsdl -use-generics -p myservice -o myservice.go myservice.wsdl
+```
+
+#### Example Usage
+
+With generics enabled, you get additional methods for each operation:
+
+```go
+// Standard interface (always generated)
+response, err := client.GetUser(&GetUserRequest{UserID: 123})
+if err != nil {
+    // Handle error
+}
+
+// Generic interface (only with -use-generics flag)
+result, err := client.GetUserGeneric(&GetUserRequest{UserID: 123})
+if err != nil {
+    // Handle transport error
+}
+
+if result.IsSuccess() {
+    user, _ := result.Unwrap()
+    // Use user
+} else {
+    // Handle SOAP fault
+    fmt.Printf("SOAP Fault: %s\n", result.Fault.String)
+}
+```
+
+The generic interface provides better type safety and explicit fault handling, making it easier to distinguish between transport errors and business logic errors (SOAP faults).

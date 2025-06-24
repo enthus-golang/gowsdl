@@ -9,7 +9,6 @@ package gowsdl
 
 import (
 	"context"
-	"go/build"
 	"os"
 	"os/exec"
 	"path/filepath"
