@@ -10,7 +10,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -85,7 +85,7 @@ func downloadFile(url string, ignoreTLS bool) ([]byte, error) {
 		return nil, fmt.Errorf("Received response code %d", resp.StatusCode)
 	}
 
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +192,7 @@ func (g *GoWSDL) Start() (map[string][]byte, error) {
 func (g *GoWSDL) fetchFile(loc *Location) (data []byte, err error) {
 	if loc.f != "" {
 		log.Println("Reading", "file", loc.f)
-		data, err = ioutil.ReadFile(loc.f)
+		data, err = os.ReadFile(loc.f)
 	} else {
 		log.Println("Downloading", "file", loc.u.String())
 		data, err = downloadFile(loc.u.String(), g.ignoreTLS)
