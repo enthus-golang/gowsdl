@@ -188,7 +188,6 @@ func main() {
 	data.Write(gocode["header"])
 	data.Write(gocode["types"])
 	data.Write(gocode["operations"])
-	data.Write(gocode["soap"])
 
 	// go fmt the generated code
 	source, err := format.Source(data.Bytes())
