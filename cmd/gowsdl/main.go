@@ -55,6 +55,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	gen "github.com/hooklift/gowsdl"
@@ -91,6 +92,43 @@ func init() {
 	log.SetPrefix("🍀  ")
 }
 
+// validatePath validates a file path to prevent directory traversal attacks
+func validatePath(path string) error {
+	// Clean and normalize the path
+	cleaned := filepath.Clean(path)
+	
+	// Check for directory traversal attempts
+	if strings.Contains(cleaned, "..") {
+		return fmt.Errorf("invalid path: contains directory traversal sequence '..'")
+	}
+	
+	// Check for absolute paths that might overwrite system files
+	if filepath.IsAbs(cleaned) {
+		return fmt.Errorf("invalid path: absolute paths not allowed for security")
+	}
+	
+	return nil
+}
+
+// validateIdentifier validates package names and file names
+func validateIdentifier(name, fieldType string) error {
+	if name == "" {
+		return fmt.Errorf("%s cannot be empty", fieldType)
+	}
+	
+	// Check for common unsafe characters
+	if strings.ContainsAny(name, "/<>:\"|?*") {
+		return fmt.Errorf("invalid %s: contains unsafe characters", fieldType)
+	}
+	
+	// Check for relative path components
+	if strings.Contains(name, "..") || strings.Contains(name, "./") {
+		return fmt.Errorf("invalid %s: contains path traversal sequences", fieldType)
+	}
+	
+	return nil
+}
+
 func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] myservice.wsdl\n", os.Args[0])
@@ -114,6 +152,19 @@ func main() {
 
 	if *outFile == wsdlPath {
 		log.Fatalln("Output file cannot be the same WSDL file")
+	}
+
+	// Validate inputs for security
+	if err := validateIdentifier(*pkg, "package name"); err != nil {
+		log.Fatalf("Invalid package name: %v", err)
+	}
+	
+	if err := validateIdentifier(*outFile, "output file"); err != nil {
+		log.Fatalf("Invalid output file: %v", err)
+	}
+	
+	if err := validatePath(*dir); err != nil {
+		log.Fatalf("Invalid directory: %v", err)
 	}
 
 	// Create HTTP client configuration
@@ -175,10 +226,21 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	pkg := filepath.Join(*dir, *pkg)
-	err = os.Mkdir(pkg, 0744)
+	pkgDir := filepath.Join(*dir, *pkg)
+	
+	// Create directory with proper permissions and handle existing directories
+	err = os.MkdirAll(pkgDir, 0755)
+	if err != nil {
+		log.Fatalf("Failed to create package directory: %v", err)
+	}
 
-	file, err := os.Create(filepath.Join(pkg, *outFile))
+	// Validate the final output file path
+	outputPath := filepath.Join(pkgDir, *outFile)
+	if err := validatePath(outputPath); err != nil {
+		log.Fatalf("Invalid output path: %v", err)
+	}
+
+	file, err := os.Create(outputPath)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -199,7 +261,17 @@ func main() {
 	file.Write(source)
 
 	// server
-	serverFile, err := os.Create(pkg + "/" + "server" + *outFile)
+	serverFileName := "server" + *outFile
+	if err := validateIdentifier(serverFileName, "server file name"); err != nil {
+		log.Fatalf("Invalid server file name: %v", err)
+	}
+	
+	serverFilePath := filepath.Join(pkgDir, serverFileName)
+	if err := validatePath(serverFilePath); err != nil {
+		log.Fatalf("Invalid server file path: %v", err)
+	}
+	
+	serverFile, err := os.Create(serverFilePath)
 	if err != nil {
 		log.Fatalln(err)
 	}
