@@ -240,64 +240,97 @@ func (g *GoWSDL) StartWithContext(ctx context.Context) (map[string][]byte, error
 	}
 
 	var wg sync.WaitGroup
-
+	var mu sync.Mutex
+	errChan := make(chan error, 5) // Buffer for all goroutines
+	
+	// Generate header
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var err error
-
-		gocode["header"], err = g.genHeader()
+		data, err := g.genHeader()
 		if err != nil {
-			log.Println(err)
+			errChan <- fmt.Errorf("generating header: %w", err)
+			return
 		}
+		mu.Lock()
+		gocode["header"] = data
+		mu.Unlock()
 	}()
 
+	// Generate types
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var err error
-
-		gocode["types"], err = g.genTypes()
+		data, err := g.genTypes()
 		if err != nil {
-			log.Println(err)
+			errChan <- fmt.Errorf("generating types: %w", err)
+			return
 		}
+		mu.Lock()
+		gocode["types"] = data
+		mu.Unlock()
 	}()
 
+	// Generate operations
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var err error
-
-		gocode["operations"], err = g.genOperations()
+		data, err := g.genOperations()
 		if err != nil {
-			log.Println(err)
+			errChan <- fmt.Errorf("generating operations: %w", err)
+			return
 		}
+		mu.Lock()
+		gocode["operations"] = data
+		mu.Unlock()
 	}()
 
+	// Generate server
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var err error
-
-		gocode["server"], err = g.genServer()
+		data, err := g.genServer()
 		if err != nil {
-			log.Println(err)
+			errChan <- fmt.Errorf("generating server: %w", err)
+			return
 		}
+		mu.Lock()
+		gocode["server"] = data
+		mu.Unlock()
 	}()
 
+	// Generate server header
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var err error
-
-		gocode["server_header"], err = g.genServerHeader()
+		data, err := g.genServerHeader()
 		if err != nil {
-			log.Println(err)
+			errChan <- fmt.Errorf("generating server header: %w", err)
+			return
 		}
+		mu.Lock()
+		gocode["server_header"] = data
+		mu.Unlock()
 	}()
 
-
+	// Wait for all goroutines to finish
 	wg.Wait()
+	close(errChan)
+
+	// Collect any errors
+	var errors []error
+	for err := range errChan {
+		errors = append(errors, err)
+	}
+	
+	// If any errors occurred, return them
+	if len(errors) > 0 {
+		// Combine multiple errors into a single error
+		if len(errors) == 1 {
+			return nil, errors[0]
+		}
+		return nil, fmt.Errorf("multiple errors during code generation: %v", errors)
+	}
 
 	gocode["server_wsdl"] = []byte("var wsdl = `" + string(g.rawWSDL) + "`")
 
