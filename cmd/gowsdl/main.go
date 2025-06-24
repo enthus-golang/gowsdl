@@ -49,6 +49,7 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
+	"errors"
 	"flag"
 	"fmt"
 	"go/format"
@@ -86,6 +87,21 @@ var tlsClientCert = flag.String("tls-client-cert", "", "Path to client certifica
 var tlsClientKey = flag.String("tls-client-key", "", "Path to client key file (requires -tls-client-cert)")
 var tlsMinVersion = flag.String("tls-min-version", "1.2", "Minimum TLS version (1.0, 1.1, 1.2, 1.3)")
 
+// ValidationError represents an input validation error
+type ValidationError struct {
+	Field string // field that failed validation
+	Value string // invalid value
+	Err   error  // underlying error
+}
+
+func (e *ValidationError) Error() string {
+	return fmt.Sprintf("validation failed for %s %q: %v", e.Field, e.Value, e.Err)
+}
+
+func (e *ValidationError) Unwrap() error {
+	return e.Err
+}
+
 func init() {
 	log.SetFlags(0)
 	log.SetOutput(os.Stdout)
@@ -99,12 +115,20 @@ func validatePath(path string) error {
 	
 	// Check for directory traversal attempts
 	if strings.Contains(cleaned, "..") {
-		return fmt.Errorf("invalid path: contains directory traversal sequence '..'")
+		return &ValidationError{
+			Field: "path",
+			Value: path,
+			Err:   errors.New("contains directory traversal sequence '..'"),
+		}
 	}
 	
 	// Check for absolute paths that might overwrite system files
 	if filepath.IsAbs(cleaned) {
-		return fmt.Errorf("invalid path: absolute paths not allowed for security")
+		return &ValidationError{
+			Field: "path",
+			Value: path,
+			Err:   errors.New("absolute paths not allowed for security"),
+		}
 	}
 	
 	return nil
@@ -113,23 +137,65 @@ func validatePath(path string) error {
 // validateIdentifier validates package names and file names
 func validateIdentifier(name, fieldType string) error {
 	if name == "" {
-		return fmt.Errorf("%s cannot be empty", fieldType)
+		return &ValidationError{
+			Field: fieldType,
+			Value: name,
+			Err:   errors.New("cannot be empty"),
+		}
 	}
 	
 	// Check for common unsafe characters
 	if strings.ContainsAny(name, "/<>:\"|?*") {
-		return fmt.Errorf("invalid %s: contains unsafe characters", fieldType)
+		return &ValidationError{
+			Field: fieldType,
+			Value: name,
+			Err:   errors.New("contains unsafe characters"),
+		}
 	}
 	
 	// Check for relative path components
 	if strings.Contains(name, "..") || strings.Contains(name, "./") {
-		return fmt.Errorf("invalid %s: contains path traversal sequences", fieldType)
+		return &ValidationError{
+			Field: fieldType,
+			Value: name,
+			Err:   errors.New("contains path traversal sequences"),
+		}
 	}
 	
 	return nil
 }
 
+// writeData is a helper function to write data to a file with proper error handling
+func writeData(file *os.File, data []byte) error {
+	if _, err := file.Write(data); err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
+	}
+	return nil
+}
+
 func main() {
+	if err := run(); err != nil {
+		// Check for specific error types to provide better error messages
+		var validationErr *ValidationError
+		if errors.As(err, &validationErr) {
+			log.Fatalf("Validation error: %v", validationErr)
+		}
+		
+		var wsdlErr *gen.WSDLError
+		if errors.As(err, &wsdlErr) {
+			log.Fatalf("WSDL error: %v", wsdlErr)
+		}
+		
+		var schemaErr *gen.SchemaError  
+		if errors.As(err, &schemaErr) {
+			log.Fatalf("Schema error: %v", schemaErr)
+		}
+		
+		log.Fatalf("Error: %v", err)
+	}
+}
+
+func run() error {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] myservice.wsdl\n", os.Args[0])
 		flag.PrintDefaults()
@@ -140,31 +206,31 @@ func main() {
 	// Show app version
 	if *vers {
 		log.Println(Version)
-		os.Exit(0)
+		return nil
 	}
 
 	if len(os.Args) < 2 {
 		flag.Usage()
-		os.Exit(0)
+		return nil
 	}
 
 	wsdlPath := os.Args[len(os.Args)-1]
 
 	if *outFile == wsdlPath {
-		log.Fatalln("Output file cannot be the same WSDL file")
+		return errors.New("output file cannot be the same WSDL file")
 	}
 
 	// Validate inputs for security
 	if err := validateIdentifier(*pkg, "package name"); err != nil {
-		log.Fatalf("Invalid package name: %v", err)
+		return fmt.Errorf("invalid package name: %w", err)
 	}
 	
 	if err := validateIdentifier(*outFile, "output file"); err != nil {
-		log.Fatalf("Invalid output file: %v", err)
+		return fmt.Errorf("invalid output file: %w", err)
 	}
 	
 	if err := validatePath(*dir); err != nil {
-		log.Fatalf("Invalid directory: %v", err)
+		return fmt.Errorf("invalid directory: %w", err)
 	}
 
 	// Create HTTP client configuration
@@ -190,7 +256,7 @@ func main() {
 		case "1.3":
 			minVersion = tls.VersionTLS13
 		default:
-			log.Fatalf("Invalid TLS version: %s", *tlsMinVersion)
+			return fmt.Errorf("invalid TLS version: %s", *tlsMinVersion)
 		}
 		if httpConfig.TLSConfig == nil {
 			httpConfig.TLSConfig = &tls.Config{}
@@ -201,29 +267,29 @@ func main() {
 	// Add CA certificate if provided
 	if *tlsCACert != "" {
 		if _, err := httpConfig.WithCACert(*tlsCACert); err != nil {
-			log.Fatalf("Failed to load CA certificate: %v", err)
+			return fmt.Errorf("failed to load CA certificate: %w", err)
 		}
 	}
 
 	// Add client certificate if provided
 	if *tlsClientCert != "" && *tlsClientKey != "" {
 		if _, err := httpConfig.WithClientCert(*tlsClientCert, *tlsClientKey); err != nil {
-			log.Fatalf("Failed to load client certificate: %v", err)
+			return fmt.Errorf("failed to load client certificate: %w", err)
 		}
 	} else if *tlsClientCert != "" || *tlsClientKey != "" {
-		log.Fatalln("Both -tls-client-cert and -tls-client-key must be provided together")
+		return errors.New("both -tls-client-cert and -tls-client-key must be provided together")
 	}
 
 	// load wsdl
 	gowsdl, err := gen.NewGoWSDLWithConfig(wsdlPath, *pkg, httpConfig, *makePublic)
 	if err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("failed to initialize WSDL generator: %w", err)
 	}
 
 	// generate code
 	gocode, err := gowsdl.Start()
 	if err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("failed to generate code: %w", err)
 	}
 
 	pkgDir := filepath.Join(*dir, *pkg)
@@ -231,18 +297,18 @@ func main() {
 	// Create directory with proper permissions and handle existing directories
 	err = os.MkdirAll(pkgDir, 0755)
 	if err != nil {
-		log.Fatalf("Failed to create package directory: %v", err)
+		return fmt.Errorf("failed to create package directory: %w", err)
 	}
 
 	// Validate the final output file path
 	outputPath := filepath.Join(pkgDir, *outFile)
 	if err := validatePath(outputPath); err != nil {
-		log.Fatalf("Invalid output path: %v", err)
+		return fmt.Errorf("invalid output path: %w", err)
 	}
 
 	file, err := os.Create(outputPath)
 	if err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("failed to create output file: %w", err)
 	}
 	defer file.Close()
 
@@ -254,26 +320,31 @@ func main() {
 	// go fmt the generated code
 	source, err := format.Source(data.Bytes())
 	if err != nil {
-		file.Write(data.Bytes())
-		log.Fatalln(err)
+		// Write unformatted code and return error with context
+		if writeErr := writeData(file, data.Bytes()); writeErr != nil {
+			return fmt.Errorf("failed to format code and failed to write unformatted code: format error: %w, write error: %v", err, writeErr)
+		}
+		return fmt.Errorf("failed to format generated code: %w", err)
 	}
 
-	file.Write(source)
+	if err := writeData(file, source); err != nil {
+		return fmt.Errorf("failed to write formatted code: %w", err)
+	}
 
 	// server
 	serverFileName := "server" + *outFile
 	if err := validateIdentifier(serverFileName, "server file name"); err != nil {
-		log.Fatalf("Invalid server file name: %v", err)
+		return fmt.Errorf("invalid server file name: %w", err)
 	}
 	
 	serverFilePath := filepath.Join(pkgDir, serverFileName)
 	if err := validatePath(serverFilePath); err != nil {
-		log.Fatalf("Invalid server file path: %v", err)
+		return fmt.Errorf("invalid server file path: %w", err)
 	}
 	
 	serverFile, err := os.Create(serverFilePath)
 	if err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("failed to create server file: %w", err)
 	}
 	defer serverFile.Close()
 
@@ -284,10 +355,17 @@ func main() {
 
 	serverSource, err := format.Source(serverData.Bytes())
 	if err != nil {
-		serverFile.Write(serverData.Bytes())
-		log.Fatalln(err)
+		// Write unformatted server code and return error with context
+		if writeErr := writeData(serverFile, serverData.Bytes()); writeErr != nil {
+			return fmt.Errorf("failed to format server code and failed to write unformatted server code: format error: %w, write error: %v", err, writeErr)
+		}
+		return fmt.Errorf("failed to format generated server code: %w", err)
 	}
-	serverFile.Write(serverSource)
+	
+	if err := writeData(serverFile, serverSource); err != nil {
+		return fmt.Errorf("failed to write formatted server code: %w", err)
+	}
 
 	log.Println("Done 👍")
+	return nil
 }

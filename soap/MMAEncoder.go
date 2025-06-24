@@ -111,7 +111,7 @@ func (d *mmaDecoder) Decode(v interface{}) error {
 	for {
 		p, err := d.reader.NextPart()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err
