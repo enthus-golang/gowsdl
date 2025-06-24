@@ -1,0 +1,84 @@
+name: License Go
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  license-check:
+    runs-on: ubuntu-latest
+    name: License Check
+    # Skip job if PR is draft or has WIP in title
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && !contains(github.event.pull_request.title, 'WIP'))
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+          cache: true  # Enable built-in Go cache
+
+      - name: Set up Go tools cache
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin
+          key: ${{ runner.os }}-go-tools-${{ hashFiles('**/go.mod') }}
+          restore-keys: |
+            ${{ runner.os }}-go-tools-
+
+      - name: Install go-licenses
+        run: |
+          if ! command -v go-licenses &> /dev/null; then
+            echo "Installing go-licenses..."
+            go install github.com/google/go-licenses@latest
+          else
+            echo "go-licenses already installed"
+          fi
+
+      - name: Check licenses
+        run: go-licenses check ./...
+
+  license-report:
+    runs-on: ubuntu-latest
+    name: License Report
+    # Skip job if PR is draft or has WIP in title
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && !contains(github.event.pull_request.title, 'WIP'))
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+          cache: true  # Enable built-in Go cache
+
+      - name: Set up Go tools cache
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin
+          key: ${{ runner.os }}-go-tools-${{ hashFiles('**/go.mod') }}
+          restore-keys: |
+            ${{ runner.os }}-go-tools-
+
+      - name: Install go-licenses
+        run: |
+          if ! command -v go-licenses &> /dev/null; then
+            echo "Installing go-licenses..."
+            go install github.com/google/go-licenses@latest
+          else
+            echo "go-licenses already installed"
+          fi
+
+      - name: Report to GitHub Step Summary
+        run: >
+          go-licenses report ./...
+          --template .github/templates/go-licenses.md.tpl
+          >> $GITHUB_STEP_SUMMARY
+        shell: bash
