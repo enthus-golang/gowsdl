@@ -6,12 +6,15 @@
 
 Generates Go code from a WSDL file.
 
+### Requirements
+
+* Go 1.21 or higher
+
 ### Install
 
 * [Download release](https://github.com/hooklift/gowsdl/releases)
 * Download and build locally
-    * 1.15: `go get github.com/hooklift/gowsdl/...`
-    * 1.20: `go install github.com/hooklift/gowsdl/cmd/gowsdl@latest`
+    * Go 1.21+: `go install github.com/hooklift/gowsdl/cmd/gowsdl@latest`
 * Install from Homebrew: `brew install gowsdl`
 
 ### Goals

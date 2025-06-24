@@ -13,7 +13,6 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -308,7 +307,7 @@ func TestEPCISWSDL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedBytes, err := ioutil.ReadFile("./fixtures/epcis/epcisquery.src")
+	expectedBytes, err := os.ReadFile("./fixtures/epcis/epcisquery.src")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,7 +315,7 @@ func TestEPCISWSDL(t *testing.T) {
 	actual := string(source)
 	expected := string(expectedBytes)
 	if actual != expected {
-		_ = ioutil.WriteFile("./fixtures/epcis/epcisquery_gen.src", source, 0664)
+		_ = os.WriteFile("./fixtures/epcis/epcisquery_gen.src", source, 0664)
 		t.Error("got source ./fixtures/epcis/epcisquery_gen.src but expected ./fixtures/epcis/epcisquery.src")
 	}
 }
