@@ -69,11 +69,14 @@ type GoWSDL struct {
 	ignoreTLS             bool
 	makePublicFn          func(string) string
 	wsdl                  *WSDL
+	wsdl2                 *WSDL2
+	wsdlVersion           string // "1.1" or "2.0"
 	resolvedXSDExternals  map[string]bool
 	currentRecursionLevel uint8
 	currentNamespace      string
 	httpConfig            *HTTPClientConfig
 	useGenerics           bool
+	namespaceManager      *NamespaceManager
 }
 
 // Method setNS sets (and returns) the currently active XML namespace.
@@ -186,11 +189,12 @@ func NewGoWSDLWithConfig(file, pkg string, httpConfig *HTTPClientConfig, exportA
 	}
 
 	return &GoWSDL{
-		loc:          r,
-		pkg:          pkg,
-		ignoreTLS:    httpConfig.InsecureSkipVerify,
-		makePublicFn: makePublicFn,
-		httpConfig:   httpConfig,
+		loc:              r,
+		pkg:              pkg,
+		ignoreTLS:        httpConfig.InsecureSkipVerify,
+		makePublicFn:     makePublicFn,
+		httpConfig:       httpConfig,
+		namespaceManager: NewNamespaceManager(),
 	}, nil
 }
 
@@ -220,12 +224,13 @@ func NewGoWSDLWithOptions(file, pkg string, httpConfig *HTTPClientConfig, export
 	}
 
 	return &GoWSDL{
-		loc:          r,
-		pkg:          pkg,
-		ignoreTLS:    httpConfig.InsecureSkipVerify,
-		makePublicFn: makePublicFn,
-		httpConfig:   httpConfig,
-		useGenerics:  useGenerics,
+		loc:              r,
+		pkg:              pkg,
+		ignoreTLS:        httpConfig.InsecureSkipVerify,
+		makePublicFn:     makePublicFn,
+		httpConfig:       httpConfig,
+		useGenerics:      useGenerics,
+		namespaceManager: NewNamespaceManager(),
 	}, nil
 }
 
@@ -255,11 +260,12 @@ func NewGoWSDL(file, pkg string, ignoreTLS bool, exportAllTypes bool) (*GoWSDL, 
 	httpConfig.InsecureSkipVerify = ignoreTLS
 
 	return &GoWSDL{
-		loc:          r,
-		pkg:          pkg,
-		ignoreTLS:    ignoreTLS,
-		makePublicFn: makePublicFn,
-		httpConfig:   httpConfig,
+		loc:              r,
+		pkg:              pkg,
+		ignoreTLS:        ignoreTLS,
+		makePublicFn:     makePublicFn,
+		httpConfig:       httpConfig,
+		namespaceManager: NewNamespaceManager(),
 	}, nil
 }
 
@@ -273,8 +279,15 @@ func (g *GoWSDL) StartWithContext(ctx context.Context) (map[string][]byte, error
 	}
 
 	// Process WSDL nodes
-	for _, schema := range g.wsdl.Types.Schemas {
-		newTraverser(schema, g.wsdl.Types.Schemas).traverse()
+	var schemas []*XSDSchema
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		schemas = g.wsdl2.Types.Schemas
+	} else if g.wsdl != nil {
+		schemas = g.wsdl.Types.Schemas
+	}
+	
+	for _, schema := range schemas {
+		newTraverser(schema, schemas).traverse()
 	}
 
 	var wg sync.WaitGroup
@@ -401,25 +414,79 @@ func (g *GoWSDL) unmarshal(ctx context.Context) error {
 			Err:  err,
 		}
 	}
-
-	g.wsdl = new(WSDL)
-	err = xml.Unmarshal(data, g.wsdl)
-	if err != nil {
-		return &WSDLError{
-			Op:   "parse",
-			Path: g.loc.String(),
-			Err:  fmt.Errorf("failed to unmarshal WSDL: %w", err),
-		}
-	}
 	g.rawWSDL = data
 
-	for _, schema := range g.wsdl.Types.Schemas {
-		err = g.resolveXSDExternals(ctx, schema, g.loc)
+	// Detect WSDL version
+	version, err := detectWSDLVersion(data)
+	if err != nil {
+		return &WSDLError{
+			Op:   "detect_version",
+			Path: g.loc.String(),
+			Err:  err,
+		}
+	}
+	g.wsdlVersion = version
+
+	// Parse based on version
+	if version == "2.0" {
+		g.wsdl2 = new(WSDL2)
+		err = xml.Unmarshal(data, g.wsdl2)
 		if err != nil {
 			return &WSDLError{
-				Op:   "resolve_schemas",
+				Op:   "parse",
 				Path: g.loc.String(),
-				Err:  err,
+				Err:  fmt.Errorf("failed to unmarshal WSDL 2.0: %w", err),
+			}
+		}
+
+		// Register WSDL 2.0 namespaces
+		if g.wsdl2.Xmlns != nil {
+			g.namespaceManager.RegisterNamespaces(g.wsdl2.Xmlns)
+		}
+
+		// Register namespaces from each schema
+		for _, schema := range g.wsdl2.Types.Schemas {
+			if schema.Xmlns != nil {
+				g.namespaceManager.RegisterNamespaces(schema.Xmlns)
+			}
+			err = g.resolveXSDExternals(ctx, schema, g.loc)
+			if err != nil {
+				return &WSDLError{
+					Op:   "resolve_schemas",
+					Path: g.loc.String(),
+					Err:  err,
+				}
+			}
+		}
+	} else {
+		// Default to WSDL 1.1
+		g.wsdl = new(WSDL)
+		err = xml.Unmarshal(data, g.wsdl)
+		if err != nil {
+			return &WSDLError{
+				Op:   "parse",
+				Path: g.loc.String(),
+				Err:  fmt.Errorf("failed to unmarshal WSDL 1.1: %w", err),
+			}
+		}
+
+		// Register WSDL namespaces
+		if g.wsdl.Xmlns != nil {
+			g.namespaceManager.RegisterNamespaces(g.wsdl.Xmlns)
+		}
+
+		// Register namespaces from each schema
+		for _, schema := range g.wsdl.Types.Schemas {
+			if schema.Xmlns != nil {
+				g.namespaceManager.RegisterNamespaces(schema.Xmlns)
+			}
+			err = g.resolveXSDExternals(ctx, schema, g.loc)
+			if err != nil {
+				return &WSDLError{
+					Op:   "resolve_schemas",
+					Path: g.loc.String(),
+					Err:  err,
+				}
 			}
 		}
 	}
@@ -466,6 +533,11 @@ func (g *GoWSDL) resolveXSDExternals(ctx context.Context, schema *XSDSchema, loc
 			}
 		}
 
+		// Register namespaces from the newly loaded schema
+		if newschema.Xmlns != nil {
+			g.namespaceManager.RegisterNamespaces(newschema.Xmlns)
+		}
+
 		if (len(newschema.Includes) > 0 || len(newschema.Imports) > 0) &&
 			maxRecursion > g.currentRecursionLevel {
 			g.currentRecursionLevel++
@@ -480,7 +552,12 @@ func (g *GoWSDL) resolveXSDExternals(ctx context.Context, schema *XSDSchema, loc
 			}
 		}
 
-		g.wsdl.Types.Schemas = append(g.wsdl.Types.Schemas, newschema)
+		// Append to the appropriate schema collection based on WSDL version
+		if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+			g.wsdl2.Types.Schemas = append(g.wsdl2.Types.Schemas, newschema)
+		} else if g.wsdl != nil {
+			g.wsdl.Types.Schemas = append(g.wsdl.Types.Schemas, newschema)
+		}
 
 		return nil
 	}
@@ -869,7 +946,8 @@ func (g *GoWSDL) findServiceAddress(name string) string {
 	return ""
 }
 
-// TODO(c4milo): Add namespace support instead of stripping it
+// stripns extracts the local part of a qualified name (for backward compatibility)
+// Deprecated: Use GoWSDL.resolveType instead for proper namespace handling
 func stripns(xsdType string) string {
 	r := strings.Split(xsdType, ":")
 	t := r[0]
@@ -879,6 +957,16 @@ func stripns(xsdType string) string {
 	}
 
 	return t
+}
+
+// resolveType resolves a qualified type name to its local name and namespace
+func (g *GoWSDL) resolveType(qname string) (localName, namespace string) {
+	if g.namespaceManager == nil {
+		// Fallback for backward compatibility
+		return stripns(qname), ""
+	}
+	
+	return g.namespaceManager.ResolveQName(qname, g.currentNamespace)
 }
 
 func makePublic(identifier string) string {

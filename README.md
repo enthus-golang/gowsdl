@@ -23,11 +23,13 @@ Generates Go code from a WSDL file.
 * Generate idiomatic Go code as much as possible
 * Support only Document/Literal wrapped services, which are [WS-I](http://ws-i.org/) compliant
 * Support:
-	* WSDL 1.1
+	* WSDL 1.1 and WSDL 2.0
 	* XML Schema 1.0
 	* SOAP 1.1
 * Resolve external XML Schemas
 * Support external and local WSDL
+* Full namespace handling and preservation
+* XSD element reference resolution
 
 ### Caveats
 * Please keep in mind that the generated code is just a reflection of what the WSDL is like. If your WSDL has duplicated type definitions, your Go code is going to have the same and may not compile.
@@ -93,3 +95,41 @@ if result.IsSuccess() {
 ```
 
 The generic interface provides better type safety and explicit fault handling, making it easier to distinguish between transport errors and business logic errors (SOAP faults).
+
+### New Features
+
+#### WSDL 2.0 Support
+
+gowsdl now supports both WSDL 1.1 and WSDL 2.0 documents. The version is automatically detected and the appropriate parser is used. WSDL 2.0 features include:
+
+* Interface definitions (replacing portType)
+* Endpoint definitions (replacing port)
+* Modern message exchange patterns
+* Improved fault handling
+
+#### Enhanced Namespace Handling
+
+Namespaces are now properly preserved and managed throughout the code generation process:
+
+* XML namespace prefixes are maintained in generated code
+* Namespace collisions are automatically resolved
+* Generated XML tags include proper namespace information
+* Support for qualified and unqualified element/attribute forms
+
+#### XSD Element Reference Resolution
+
+The code generator now properly resolves XSD element references:
+
+* Global element references are fully resolved
+* Cross-schema element references are supported
+* Properties from referenced elements are properly inherited
+* Complex type references within elements are handled correctly
+
+#### Improved Local Schema Resolution
+
+When working with local WSDL files that reference external schemas:
+
+* Relative schema paths are correctly resolved
+* Local schema imports work seamlessly
+* Recursive schema resolution is supported with cycle detection
+* Mixed local and remote schema references are handled

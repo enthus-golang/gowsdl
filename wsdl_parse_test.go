@@ -26,7 +26,7 @@ func TestWSDLParsingEdgeCases(t *testing.T) {
 			name: "empty WSDL",
 			wsdlContent: `<?xml version="1.0" encoding="UTF-8"?>`,
 			wantErr:     true,
-			errContains: "failed to unmarshal WSDL",
+			errContains: "unable to determine WSDL version",
 		},
 		{
 			name: "invalid XML",
