@@ -74,6 +74,7 @@ var outFile = flag.String("o", "myservice.go", "File where the generated code wi
 var dir = flag.String("d", "./", "Directory under which package directory will be created")
 var insecure = flag.Bool("i", false, "Skips TLS Verification")
 var makePublic = flag.Bool("make-public", true, "Make the generated types public/exported")
+var useGenerics = flag.Bool("use-generics", false, "Generate code using Go generics (requires Go 1.18+)")
 
 // HTTP client configuration flags
 var httpTimeout = flag.Duration("http-timeout", 30*time.Second, "Timeout for HTTP requests")
@@ -281,7 +282,7 @@ func run() error {
 	}
 
 	// load wsdl
-	gowsdl, err := gen.NewGoWSDLWithConfig(wsdlPath, *pkg, httpConfig, *makePublic)
+	gowsdl, err := gen.NewGoWSDLWithOptions(wsdlPath, *pkg, httpConfig, *makePublic, *useGenerics)
 	if err != nil {
 		return fmt.Errorf("failed to initialize WSDL generator: %w", err)
 	}

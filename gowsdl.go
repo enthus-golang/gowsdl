@@ -73,6 +73,7 @@ type GoWSDL struct {
 	currentRecursionLevel uint8
 	currentNamespace      string
 	httpConfig            *HTTPClientConfig
+	useGenerics           bool
 }
 
 // Method setNS sets (and returns) the currently active XML namespace.
@@ -190,6 +191,41 @@ func NewGoWSDLWithConfig(file, pkg string, httpConfig *HTTPClientConfig, exportA
 		ignoreTLS:    httpConfig.InsecureSkipVerify,
 		makePublicFn: makePublicFn,
 		httpConfig:   httpConfig,
+	}, nil
+}
+
+// NewGoWSDLWithOptions initializes WSDL generator with all available options.
+func NewGoWSDLWithOptions(file, pkg string, httpConfig *HTTPClientConfig, exportAllTypes bool, useGenerics bool) (*GoWSDL, error) {
+	file = strings.TrimSpace(file)
+	if file == "" {
+		return nil, errors.New("WSDL file is required to generate Go proxy")
+	}
+
+	pkg = strings.TrimSpace(pkg)
+	if pkg == "" {
+		pkg = "myservice"
+	}
+	makePublicFn := func(id string) string { return id }
+	if exportAllTypes {
+		makePublicFn = makePublic
+	}
+
+	r, err := ParseLocation(file)
+	if err != nil {
+		return nil, err
+	}
+
+	if httpConfig == nil {
+		httpConfig = DefaultHTTPClientConfig()
+	}
+
+	return &GoWSDL{
+		loc:          r,
+		pkg:          pkg,
+		ignoreTLS:    httpConfig.InsecureSkipVerify,
+		makePublicFn: makePublicFn,
+		httpConfig:   httpConfig,
+		useGenerics:  useGenerics,
 	}, nil
 }
 
@@ -512,7 +548,14 @@ func (g *GoWSDL) genOperations() ([]byte, error) {
 	}
 
 	data := new(bytes.Buffer)
-	tmpl := template.Must(template.New("operations").Funcs(funcMap).Parse(opsTmpl))
+	
+	// Choose template based on useGenerics flag
+	templateContent := opsTmpl
+	if g.useGenerics {
+		templateContent = genericOpsTmpl
+	}
+	
+	tmpl := template.Must(template.New("operations").Funcs(funcMap).Parse(templateContent))
 	err := tmpl.Execute(data, g.wsdl.PortTypes)
 	if err != nil {
 		return nil, err

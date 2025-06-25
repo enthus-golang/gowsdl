@@ -389,6 +389,11 @@ func (s *Client) SetHttpClientHeaders(headers map[string]string) {
 	s.opts.httpHeaders = headers
 }
 
+// URL returns the SOAP service URL
+func (s *Client) URL() string {
+	return s.url
+}
+
 // CallContext performs HTTP POST request with a context
 func (s *Client) CallContext(ctx context.Context, soapAction string, request, response interface{}) error {
 	return s.call(ctx, soapAction, request, response, nil, nil)
