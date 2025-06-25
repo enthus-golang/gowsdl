@@ -42,7 +42,7 @@ Usage: gowsdl [options] myservice.wsdl
   -i    Skips TLS Verification
   -v    Shows gowsdl version
   -use-generics
-        Generate code using Go generics (requires Go 1.18+)
+        Generate code using Go generics (requires Go 1.18+ for generic features)
   ```
 
 ### Go Generics Support
@@ -82,7 +82,13 @@ if result.IsSuccess() {
     // Use user
 } else {
     // Handle SOAP fault
-    fmt.Printf("SOAP Fault: %s\n", result.Fault.String)
+    if result.TransportError {
+        // Network/transport error (connection refused, timeout, etc.)
+        fmt.Printf("Transport Error: %s\n", result.Fault.String)
+    } else {
+        // Business logic error from SOAP service
+        fmt.Printf("SOAP Fault: %s\n", result.Fault.String)
+    }
 }
 ```
 

@@ -55,6 +55,9 @@ func (c *GenericClient[TReq, TResp]) CallWithFault(ctx context.Context, request 
 type Result[T any] struct {
 	Value T
 	Fault *SOAPFault
+	// TransportError indicates if the fault was due to a transport/network error
+	// rather than a SOAP fault from the server
+	TransportError bool
 }
 
 // Unwrap returns the value or an error if a fault occurred
@@ -75,16 +78,18 @@ func (r Result[T]) IsSuccess() bool {
 func (c *GenericClient[TReq, TResp]) CallAsResult(ctx context.Context, request TReq) Result[TResp] {
 	value, fault, err := c.CallWithFault(ctx, request)
 	if err != nil {
-		// Convert non-SOAP errors to faults
+		// Convert non-SOAP errors to faults with TransportError flag
+		// This helps distinguish between network/transport issues and SOAP faults
 		return Result[TResp]{
 			Fault: &SOAPFault{
-				Code:   "Client",
+				Code:   "Client.Transport",
 				String: err.Error(),
 			},
+			TransportError: true,
 		}
 	}
 	if fault != nil {
-		return Result[TResp]{Fault: fault}
+		return Result[TResp]{Fault: fault, TransportError: false}
 	}
 	return Result[TResp]{Value: *value}
 }
@@ -148,18 +153,57 @@ type BatchResult[T any] struct {
 // CallBatch executes multiple SOAP requests concurrently
 func (b *BatchClient[TReq, TResp]) CallBatch(ctx context.Context, requests []TReq) []BatchResult[TResp] {
 	results := make([]BatchResult[TResp], len(requests))
+	received := make([]bool, len(requests))
 	ch := make(chan BatchResult[TResp], len(requests))
+	
+	// Create a context that we can cancel to stop all goroutines
+	batchCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	
 	for i, req := range requests {
 		go func(index int, request TReq) {
-			result := b.client.CallAsResult(ctx, request)
-			ch <- BatchResult[TResp]{Index: index, Result: result}
+			result := b.client.CallAsResult(batchCtx, request)
+			select {
+			case ch <- BatchResult[TResp]{Index: index, Result: result}:
+			case <-batchCtx.Done():
+				// Context cancelled, exit goroutine
+			}
 		}(i, req)
 	}
 	
+	// Collect results with context awareness
 	for i := 0; i < len(requests); i++ {
-		result := <-ch
-		results[result.Index] = result
+		select {
+		case result := <-ch:
+			results[result.Index] = result
+			received[result.Index] = true
+		case <-ctx.Done():
+			// Context cancelled, create error results for remaining requests
+			cancel() // Cancel all pending requests
+			// Drain any remaining results to prevent goroutine leaks
+			go func() {
+				for range ch {
+					// Drain channel
+				}
+			}()
+			// Fill remaining results with context error
+			for j := 0; j < len(requests); j++ {
+				// Check if this result hasn't been received yet
+				if !received[j] {
+					results[j] = BatchResult[TResp]{
+						Index: j,
+						Result: Result[TResp]{
+							Fault: &SOAPFault{
+								Code:   "Client.Timeout",
+								String: ctx.Err().Error(),
+							},
+							TransportError: true,
+						},
+					}
+				}
+			}
+			return results
+		}
 	}
 	
 	return results
