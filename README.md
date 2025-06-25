@@ -100,12 +100,22 @@ The generic interface provides better type safety and explicit fault handling, m
 
 #### WSDL 2.0 Support
 
-gowsdl now supports both WSDL 1.1 and WSDL 2.0 documents. The version is automatically detected and the appropriate parser is used. WSDL 2.0 features include:
+gowsdl now fully supports both WSDL 1.1 and WSDL 2.0 documents with complete code generation capabilities. Features include:
 
-* Interface definitions (replacing portType)
-* Endpoint definitions (replacing port)
-* Modern message exchange patterns
-* Improved fault handling
+* **Automatic version detection** - WSDL version is detected from the root element namespace
+* **Complete parsing support** for WSDL 2.0 structures:
+  - Interface definitions (replacing portType from WSDL 1.1)
+  - Endpoint definitions (replacing port from WSDL 1.1)
+  - Modern message exchange patterns
+  - Enhanced fault handling with input/output fault references
+* **Full code generation** - Operations, types, and server code are generated using WSDL 2.0-specific templates
+* **Backward compatibility** - All existing WSDL 1.1 functionality remains unchanged
+
+Example usage with WSDL 2.0 files:
+```bash
+# Works seamlessly with both WSDL 1.1 and 2.0
+gowsdl -p myservice -o myservice.go https://example.com/service.wsdl
+```
 
 #### Enhanced Namespace Handling
 
@@ -133,3 +143,15 @@ When working with local WSDL files that reference external schemas:
 * Local schema imports work seamlessly
 * Recursive schema resolution is supported with cycle detection
 * Mixed local and remote schema references are handled
+
+### Implementation Status
+
+This implementation addresses all the features requested in [issue #10](https://github.com/enthus-golang/gowsdl/issues/10), including the original TODOs:
+
+- ✅ **Support for generating namespaces** (main.go:41) - Complete namespace management system
+- ✅ **Resolve XSD element references** (main.go:39) - Full element reference resolution  
+- ✅ **Local schema resolution** (main.go:37) - Enhanced local and remote schema handling
+- ✅ **WSDL 2.0 Support** - Complete parsing and code generation
+- ✅ **Better error messages** - Contextual errors with suggestions
+
+All features include comprehensive test coverage and maintain backward compatibility with existing WSDL 1.1 code.

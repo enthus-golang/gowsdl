@@ -635,10 +635,14 @@ func (g *GoWSDL) genOperations() ([]byte, error) {
 
 	data := new(bytes.Buffer)
 	
-	// Choose template based on useGenerics flag
-	templateContent := opsTmpl
-	if g.useGenerics {
+	// Choose template based on WSDL version and useGenerics flag
+	var templateContent string
+	if g.wsdlVersion == "2.0" {
+		templateContent = wsdl2OpsTmpl
+	} else if g.useGenerics {
 		templateContent = genericOpsTmpl
+	} else {
+		templateContent = opsTmpl
 	}
 	
 	tmpl := template.Must(template.New("operations").Funcs(funcMap).Parse(templateContent))
@@ -671,7 +675,16 @@ func (g *GoWSDL) genServer() ([]byte, error) {
 	}
 
 	data := new(bytes.Buffer)
-	tmpl := template.Must(template.New("server").Funcs(funcMap).Parse(serverTmpl))
+	
+	// Choose template based on WSDL version
+	var templateContent string
+	if g.wsdlVersion == "2.0" {
+		templateContent = wsdl2ServerTmpl
+	} else {
+		templateContent = serverTmpl
+	}
+	
+	tmpl := template.Must(template.New("server").Funcs(funcMap).Parse(templateContent))
 	
 	// Use appropriate structures based on WSDL version
 	var templateData interface{}

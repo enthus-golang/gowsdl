@@ -143,26 +143,43 @@ func TestWSDL2Integration(t *testing.T) {
 	})
 
 	t.Run("WSDL2CodeGeneration", func(t *testing.T) {
-		// Test types generation (this should work since types are the same structure)
+		// Test full code generation with WSDL 2.0
 		g, err := NewGoWSDL(tempFile.Name(), "stockquote", false, true)
 		require.NoError(t, err)
 
-		err = g.unmarshal(context.Background())
+		gocode, err := g.StartWithContext(context.Background())
 		require.NoError(t, err)
 
-		// Test types generation specifically
-		typesCode, err := g.genTypes()
-		require.NoError(t, err)
+		// Verify that all code sections were generated
+		assert.NotEmpty(t, gocode)
+		assert.Contains(t, gocode, "header")
+		assert.Contains(t, gocode, "types")
+		assert.Contains(t, gocode, "operations")
+		assert.Contains(t, gocode, "server")
 
-		// Check that types were generated
-		typesStr := string(typesCode)
+		// Check that types were generated correctly
+		typesStr := string(gocode["types"])
 		assert.Contains(t, typesStr, "GetQuoteRequest")
 		assert.Contains(t, typesStr, "GetQuoteResponse")
 		assert.Contains(t, typesStr, "QuoteFault")
 
-		// Note: Operations and server generation require template updates for WSDL 2.0
-		// This is a known limitation - templates expect WSDL 1.1 structures
-		t.Log("Operations and server generation require WSDL 2.0 template updates")
+		// Check that operations were generated with WSDL 2.0 template
+		opsStr := string(gocode["operations"])
+		assert.Contains(t, opsStr, "StockQuoteInterface")
+		assert.Contains(t, opsStr, "GetQuote")
+		assert.Contains(t, opsStr, "GetQuoteContext")
+		// Should use element-based types, not message-based
+		assert.Contains(t, opsStr, "GetQuoteRequest")
+		assert.Contains(t, opsStr, "GetQuoteResponse")
+
+		// Check that server code was generated with WSDL 2.0 template
+		serverStr := string(gocode["server"])
+		assert.Contains(t, serverStr, "SOAPEnvelopeRequest")
+		assert.Contains(t, serverStr, "SOAPBodyRequest")
+		assert.Contains(t, serverStr, "GetQuoteRequest")
+		assert.Contains(t, serverStr, "GetQuoteResponse")
+		
+		t.Log("WSDL 2.0 code generation completed successfully")
 	})
 
 	t.Run("WSDL2HelperFunctions", func(t *testing.T) {
