@@ -1079,15 +1079,6 @@ func stripns(xsdType string) string {
 	return t
 }
 
-// resolveType resolves a qualified type name to its local name and namespace
-func (g *GoWSDL) resolveType(qname string) (localName, namespace string) {
-	if g.namespaceManager == nil {
-		// Fallback for backward compatibility
-		return stripns(qname), ""
-	}
-	
-	return g.namespaceManager.ResolveQName(qname, g.currentNamespace)
-}
 
 func makePublic(identifier string) string {
 	if isBasicType(identifier) {
