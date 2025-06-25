@@ -91,6 +91,31 @@ func (t *traverser) traverseElements(ct []*XSDElement) {
 }
 
 func (t *traverser) traverseElement(elm *XSDElement) {
+	// Check if we are in ref resolution mode
+	if t.tm == refResolution && elm.Ref != "" {
+		refElm := t.getGlobalElement(elm.Ref)
+		if refElm != nil && refElm.Ref == "" {
+			// Copy properties from referenced element
+			t.traverseElement(refElm)
+			elm.Name = refElm.Name
+			elm.Type = refElm.Type
+			elm.Nillable = refElm.Nillable
+			if elm.MinOccurs == "" {
+				elm.MinOccurs = refElm.MinOccurs
+			}
+			if elm.MaxOccurs == "" {
+				elm.MaxOccurs = refElm.MaxOccurs
+			}
+			// Copy complex/simple type if element doesn't have its own
+			if elm.ComplexType == nil {
+				elm.ComplexType = refElm.ComplexType
+			}
+			if elm.SimpleType == nil {
+				elm.SimpleType = refElm.SimpleType
+			}
+		}
+	}
+
 	t.findElmName(elm)
 
 	if elm.ComplexType != nil {
@@ -177,6 +202,22 @@ func (t *traverser) getGlobalAttribute(name string) *XSDAttribute {
 			for _, attr := range schema.Attributes {
 				if attr.Name == ref.Local {
 					return attr
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (t *traverser) getGlobalElement(name string) *XSDElement {
+	ref := t.qname(name)
+
+	for _, schema := range t.all {
+		if schema.TargetNamespace == ref.Space {
+			for _, elm := range schema.Elements {
+				if elm.Name == ref.Local {
+					return elm
 				}
 			}
 		}

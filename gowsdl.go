@@ -69,11 +69,14 @@ type GoWSDL struct {
 	ignoreTLS             bool
 	makePublicFn          func(string) string
 	wsdl                  *WSDL
+	wsdl2                 *WSDL2
+	wsdlVersion           string // "1.1" or "2.0"
 	resolvedXSDExternals  map[string]bool
 	currentRecursionLevel uint8
 	currentNamespace      string
 	httpConfig            *HTTPClientConfig
 	useGenerics           bool
+	namespaceManager      *NamespaceManager
 }
 
 // Method setNS sets (and returns) the currently active XML namespace.
@@ -186,11 +189,12 @@ func NewGoWSDLWithConfig(file, pkg string, httpConfig *HTTPClientConfig, exportA
 	}
 
 	return &GoWSDL{
-		loc:          r,
-		pkg:          pkg,
-		ignoreTLS:    httpConfig.InsecureSkipVerify,
-		makePublicFn: makePublicFn,
-		httpConfig:   httpConfig,
+		loc:              r,
+		pkg:              pkg,
+		ignoreTLS:        httpConfig.InsecureSkipVerify,
+		makePublicFn:     makePublicFn,
+		httpConfig:       httpConfig,
+		namespaceManager: NewNamespaceManager(),
 	}, nil
 }
 
@@ -220,12 +224,13 @@ func NewGoWSDLWithOptions(file, pkg string, httpConfig *HTTPClientConfig, export
 	}
 
 	return &GoWSDL{
-		loc:          r,
-		pkg:          pkg,
-		ignoreTLS:    httpConfig.InsecureSkipVerify,
-		makePublicFn: makePublicFn,
-		httpConfig:   httpConfig,
-		useGenerics:  useGenerics,
+		loc:              r,
+		pkg:              pkg,
+		ignoreTLS:        httpConfig.InsecureSkipVerify,
+		makePublicFn:     makePublicFn,
+		httpConfig:       httpConfig,
+		useGenerics:      useGenerics,
+		namespaceManager: NewNamespaceManager(),
 	}, nil
 }
 
@@ -255,11 +260,12 @@ func NewGoWSDL(file, pkg string, ignoreTLS bool, exportAllTypes bool) (*GoWSDL, 
 	httpConfig.InsecureSkipVerify = ignoreTLS
 
 	return &GoWSDL{
-		loc:          r,
-		pkg:          pkg,
-		ignoreTLS:    ignoreTLS,
-		makePublicFn: makePublicFn,
-		httpConfig:   httpConfig,
+		loc:              r,
+		pkg:              pkg,
+		ignoreTLS:        ignoreTLS,
+		makePublicFn:     makePublicFn,
+		httpConfig:       httpConfig,
+		namespaceManager: NewNamespaceManager(),
 	}, nil
 }
 
@@ -273,8 +279,15 @@ func (g *GoWSDL) StartWithContext(ctx context.Context) (map[string][]byte, error
 	}
 
 	// Process WSDL nodes
-	for _, schema := range g.wsdl.Types.Schemas {
-		newTraverser(schema, g.wsdl.Types.Schemas).traverse()
+	var schemas []*XSDSchema
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		schemas = g.wsdl2.Types.Schemas
+	} else if g.wsdl != nil {
+		schemas = g.wsdl.Types.Schemas
+	}
+	
+	for _, schema := range schemas {
+		newTraverser(schema, schemas).traverse()
 	}
 
 	var wg sync.WaitGroup
@@ -401,25 +414,79 @@ func (g *GoWSDL) unmarshal(ctx context.Context) error {
 			Err:  err,
 		}
 	}
-
-	g.wsdl = new(WSDL)
-	err = xml.Unmarshal(data, g.wsdl)
-	if err != nil {
-		return &WSDLError{
-			Op:   "parse",
-			Path: g.loc.String(),
-			Err:  fmt.Errorf("failed to unmarshal WSDL: %w", err),
-		}
-	}
 	g.rawWSDL = data
 
-	for _, schema := range g.wsdl.Types.Schemas {
-		err = g.resolveXSDExternals(ctx, schema, g.loc)
+	// Detect WSDL version
+	version, err := detectWSDLVersion(data)
+	if err != nil {
+		return &WSDLError{
+			Op:   "detect_version",
+			Path: g.loc.String(),
+			Err:  err,
+		}
+	}
+	g.wsdlVersion = version
+
+	// Parse based on version
+	if version == "2.0" {
+		g.wsdl2 = new(WSDL2)
+		err = xml.Unmarshal(data, g.wsdl2)
 		if err != nil {
 			return &WSDLError{
-				Op:   "resolve_schemas",
+				Op:   "parse",
 				Path: g.loc.String(),
-				Err:  err,
+				Err:  fmt.Errorf("failed to unmarshal WSDL 2.0: %w", err),
+			}
+		}
+
+		// Register WSDL 2.0 namespaces
+		if g.wsdl2.Xmlns != nil {
+			g.namespaceManager.RegisterNamespaces(g.wsdl2.Xmlns)
+		}
+
+		// Register namespaces from each schema
+		for _, schema := range g.wsdl2.Types.Schemas {
+			if schema.Xmlns != nil {
+				g.namespaceManager.RegisterNamespaces(schema.Xmlns)
+			}
+			err = g.resolveXSDExternals(ctx, schema, g.loc)
+			if err != nil {
+				return &WSDLError{
+					Op:   "resolve_schemas",
+					Path: g.loc.String(),
+					Err:  err,
+				}
+			}
+		}
+	} else {
+		// Default to WSDL 1.1
+		g.wsdl = new(WSDL)
+		err = xml.Unmarshal(data, g.wsdl)
+		if err != nil {
+			return &WSDLError{
+				Op:   "parse",
+				Path: g.loc.String(),
+				Err:  fmt.Errorf("failed to unmarshal WSDL 1.1: %w", err),
+			}
+		}
+
+		// Register WSDL namespaces
+		if g.wsdl.Xmlns != nil {
+			g.namespaceManager.RegisterNamespaces(g.wsdl.Xmlns)
+		}
+
+		// Register namespaces from each schema
+		for _, schema := range g.wsdl.Types.Schemas {
+			if schema.Xmlns != nil {
+				g.namespaceManager.RegisterNamespaces(schema.Xmlns)
+			}
+			err = g.resolveXSDExternals(ctx, schema, g.loc)
+			if err != nil {
+				return &WSDLError{
+					Op:   "resolve_schemas",
+					Path: g.loc.String(),
+					Err:  err,
+				}
 			}
 		}
 	}
@@ -466,6 +533,11 @@ func (g *GoWSDL) resolveXSDExternals(ctx context.Context, schema *XSDSchema, loc
 			}
 		}
 
+		// Register namespaces from the newly loaded schema
+		if newschema.Xmlns != nil {
+			g.namespaceManager.RegisterNamespaces(newschema.Xmlns)
+		}
+
 		if (len(newschema.Includes) > 0 || len(newschema.Imports) > 0) &&
 			maxRecursion > g.currentRecursionLevel {
 			g.currentRecursionLevel++
@@ -480,7 +552,12 @@ func (g *GoWSDL) resolveXSDExternals(ctx context.Context, schema *XSDSchema, loc
 			}
 		}
 
-		g.wsdl.Types.Schemas = append(g.wsdl.Types.Schemas, newschema)
+		// Append to the appropriate schema collection based on WSDL version
+		if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+			g.wsdl2.Types.Schemas = append(g.wsdl2.Types.Schemas, newschema)
+		} else if g.wsdl != nil {
+			g.wsdl.Types.Schemas = append(g.wsdl.Types.Schemas, newschema)
+		}
 
 		return nil
 	}
@@ -526,7 +603,16 @@ func (g *GoWSDL) genTypes() ([]byte, error) {
 
 	data := new(bytes.Buffer)
 	tmpl := template.Must(template.New("types").Funcs(funcMap).Parse(typesTmpl))
-	err := tmpl.Execute(data, g.wsdl.Types)
+	
+	// Use appropriate types based on WSDL version
+	var types *WSDLType
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		types = &g.wsdl2.Types
+	} else if g.wsdl != nil {
+		types = &g.wsdl.Types
+	}
+	
+	err := tmpl.Execute(data, types)
 	if err != nil {
 		return nil, err
 	}
@@ -549,14 +635,27 @@ func (g *GoWSDL) genOperations() ([]byte, error) {
 
 	data := new(bytes.Buffer)
 	
-	// Choose template based on useGenerics flag
-	templateContent := opsTmpl
-	if g.useGenerics {
+	// Choose template based on WSDL version and useGenerics flag
+	var templateContent string
+	if g.wsdlVersion == "2.0" {
+		templateContent = wsdl2OpsTmpl
+	} else if g.useGenerics {
 		templateContent = genericOpsTmpl
+	} else {
+		templateContent = opsTmpl
 	}
 	
 	tmpl := template.Must(template.New("operations").Funcs(funcMap).Parse(templateContent))
-	err := tmpl.Execute(data, g.wsdl.PortTypes)
+	
+	// Use appropriate structures based on WSDL version
+	var templateData interface{}
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		templateData = g.wsdl2.Interfaces
+	} else if g.wsdl != nil {
+		templateData = g.wsdl.PortTypes
+	}
+	
+	err := tmpl.Execute(data, templateData)
 	if err != nil {
 		return nil, err
 	}
@@ -576,8 +675,26 @@ func (g *GoWSDL) genServer() ([]byte, error) {
 	}
 
 	data := new(bytes.Buffer)
-	tmpl := template.Must(template.New("server").Funcs(funcMap).Parse(serverTmpl))
-	err := tmpl.Execute(data, g.wsdl.PortTypes)
+	
+	// Choose template based on WSDL version
+	var templateContent string
+	if g.wsdlVersion == "2.0" {
+		templateContent = wsdl2ServerTmpl
+	} else {
+		templateContent = serverTmpl
+	}
+	
+	tmpl := template.Must(template.New("server").Funcs(funcMap).Parse(templateContent))
+	
+	// Use appropriate structures based on WSDL version
+	var templateData interface{}
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		templateData = g.wsdl2.Interfaces
+	} else if g.wsdl != nil {
+		templateData = g.wsdl.PortTypes
+	}
+	
+	err := tmpl.Execute(data, templateData)
 	if err != nil {
 		return nil, err
 	}
@@ -801,6 +918,28 @@ func removePointerFromType(goType string) string {
 func (g *GoWSDL) findType(message string) string {
 	message = stripns(message)
 
+	// Handle WSDL 2.0 - no messages, elements defined directly in operations
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		for _, iface := range g.wsdl2.Interfaces {
+			for _, op := range iface.Operations {
+				// Check input element
+				if op.Input != nil && stripns(op.Input.Element) == message {
+					return g.findElementType(op.Input.Element)
+				}
+				// Check output element
+				if op.Output != nil && stripns(op.Output.Element) == message {
+					return g.findElementType(op.Output.Element)
+				}
+			}
+		}
+		return ""
+	}
+
+	// Handle WSDL 1.1
+	if g.wsdl == nil {
+		return ""
+	}
+
 	for _, msg := range g.wsdl.Messages {
 		if msg.Name != message {
 			continue
@@ -821,15 +960,29 @@ func (g *GoWSDL) findType(message string) string {
 		}
 
 		elRef := stripns(part.Element)
+		return g.findElementType(elRef)
+	}
+	return ""
+}
 
-		for _, schema := range g.wsdl.Types.Schemas {
-			for _, el := range schema.Elements {
-				if strings.EqualFold(elRef, el.Name) {
-					if el.Type != "" {
-						return stripns(el.Type)
-					}
-					return el.Name
+// findElementType looks up an element by name and returns its type
+func (g *GoWSDL) findElementType(elementName string) string {
+	elRef := stripns(elementName)
+	
+	var schemas []*XSDSchema
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		schemas = g.wsdl2.Types.Schemas
+	} else if g.wsdl != nil {
+		schemas = g.wsdl.Types.Schemas
+	}
+
+	for _, schema := range schemas {
+		for _, el := range schema.Elements {
+			if strings.EqualFold(elRef, el.Name) {
+				if el.Type != "" {
+					return stripns(el.Type)
 				}
+				return el.Name
 			}
 		}
 	}
@@ -838,12 +991,39 @@ func (g *GoWSDL) findType(message string) string {
 
 // Given a type, check if there's an Element with that type, and return its name.
 func (g *GoWSDL) findNameByType(name string) string {
-	return newTraverser(nil, g.wsdl.Types.Schemas).findNameByType(name)
+	var schemas []*XSDSchema
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		schemas = g.wsdl2.Types.Schemas
+	} else if g.wsdl != nil {
+		schemas = g.wsdl.Types.Schemas
+	}
+	return newTraverser(nil, schemas).findNameByType(name)
 }
 
 // TODO(c4milo): Add support for namespaces instead of striping them out
 // TODO(c4milo): improve runtime complexity if performance turns out to be an issue.
 func (g *GoWSDL) findSOAPAction(operation, portType string) string {
+	// Handle WSDL 2.0
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		for _, binding := range g.wsdl2.Bindings {
+			if !strings.EqualFold(stripns(binding.Interface), portType) {
+				continue
+			}
+
+			for _, soapOp := range binding.Operations {
+				if stripns(soapOp.Ref) == operation {
+					return soapOp.SOAPAction
+				}
+			}
+		}
+		return ""
+	}
+
+	// Handle WSDL 1.1
+	if g.wsdl == nil {
+		return ""
+	}
+
 	for _, binding := range g.wsdl.Binding {
 		if !strings.EqualFold(stripns(binding.Type), portType) {
 			continue
@@ -859,6 +1039,23 @@ func (g *GoWSDL) findSOAPAction(operation, portType string) string {
 }
 
 func (g *GoWSDL) findServiceAddress(name string) string {
+	// Handle WSDL 2.0
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		for _, service := range g.wsdl2.Services {
+			for _, endpoint := range service.Endpoints {
+				if endpoint.Name == name {
+					return endpoint.Address
+				}
+			}
+		}
+		return ""
+	}
+
+	// Handle WSDL 1.1
+	if g.wsdl == nil {
+		return ""
+	}
+
 	for _, service := range g.wsdl.Service {
 		for _, port := range service.Ports {
 			if port.Name == name {
@@ -869,7 +1066,8 @@ func (g *GoWSDL) findServiceAddress(name string) string {
 	return ""
 }
 
-// TODO(c4milo): Add namespace support instead of stripping it
+// stripns extracts the local part of a qualified name (for backward compatibility)
+// Deprecated: Use GoWSDL.resolveType instead for proper namespace handling
 func stripns(xsdType string) string {
 	r := strings.Split(xsdType, ":")
 	t := r[0]
@@ -880,6 +1078,7 @@ func stripns(xsdType string) string {
 
 	return t
 }
+
 
 func makePublic(identifier string) string {
 	if isBasicType(identifier) {
