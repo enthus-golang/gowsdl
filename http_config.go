@@ -161,3 +161,23 @@ func mustParseURL(rawURL string) *url.URL {
 	}
 	return u
 }
+
+// GetUserAgent returns the user agent
+func (c *HTTPClientConfig) GetUserAgent() string {
+	return c.UserAgent
+}
+
+// GetMaxRetries returns the maximum number of retries
+func (c *HTTPClientConfig) GetMaxRetries() int {
+	return c.MaxRetries
+}
+
+// GetRetryDelay returns the delay between retries
+func (c *HTTPClientConfig) GetRetryDelay() time.Duration {
+	return c.RetryDelay
+}
+
+// GetMaxResponseSize returns the maximum response size
+func (c *HTTPClientConfig) GetMaxResponseSize() int64 {
+	return c.MaxResponseSize
+}
