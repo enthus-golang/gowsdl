@@ -603,7 +603,16 @@ func (g *GoWSDL) genTypes() ([]byte, error) {
 
 	data := new(bytes.Buffer)
 	tmpl := template.Must(template.New("types").Funcs(funcMap).Parse(typesTmpl))
-	err := tmpl.Execute(data, g.wsdl.Types)
+	
+	// Use appropriate types based on WSDL version
+	var types *WSDLType
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		types = &g.wsdl2.Types
+	} else if g.wsdl != nil {
+		types = &g.wsdl.Types
+	}
+	
+	err := tmpl.Execute(data, types)
 	if err != nil {
 		return nil, err
 	}
@@ -633,7 +642,16 @@ func (g *GoWSDL) genOperations() ([]byte, error) {
 	}
 	
 	tmpl := template.Must(template.New("operations").Funcs(funcMap).Parse(templateContent))
-	err := tmpl.Execute(data, g.wsdl.PortTypes)
+	
+	// Use appropriate structures based on WSDL version
+	var templateData interface{}
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		templateData = g.wsdl2.Interfaces
+	} else if g.wsdl != nil {
+		templateData = g.wsdl.PortTypes
+	}
+	
+	err := tmpl.Execute(data, templateData)
 	if err != nil {
 		return nil, err
 	}
@@ -654,7 +672,16 @@ func (g *GoWSDL) genServer() ([]byte, error) {
 
 	data := new(bytes.Buffer)
 	tmpl := template.Must(template.New("server").Funcs(funcMap).Parse(serverTmpl))
-	err := tmpl.Execute(data, g.wsdl.PortTypes)
+	
+	// Use appropriate structures based on WSDL version
+	var templateData interface{}
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		templateData = g.wsdl2.Interfaces
+	} else if g.wsdl != nil {
+		templateData = g.wsdl.PortTypes
+	}
+	
+	err := tmpl.Execute(data, templateData)
 	if err != nil {
 		return nil, err
 	}
@@ -878,6 +905,28 @@ func removePointerFromType(goType string) string {
 func (g *GoWSDL) findType(message string) string {
 	message = stripns(message)
 
+	// Handle WSDL 2.0 - no messages, elements defined directly in operations
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		for _, iface := range g.wsdl2.Interfaces {
+			for _, op := range iface.Operations {
+				// Check input element
+				if op.Input != nil && stripns(op.Input.Element) == message {
+					return g.findElementType(op.Input.Element)
+				}
+				// Check output element
+				if op.Output != nil && stripns(op.Output.Element) == message {
+					return g.findElementType(op.Output.Element)
+				}
+			}
+		}
+		return ""
+	}
+
+	// Handle WSDL 1.1
+	if g.wsdl == nil {
+		return ""
+	}
+
 	for _, msg := range g.wsdl.Messages {
 		if msg.Name != message {
 			continue
@@ -898,15 +947,29 @@ func (g *GoWSDL) findType(message string) string {
 		}
 
 		elRef := stripns(part.Element)
+		return g.findElementType(elRef)
+	}
+	return ""
+}
 
-		for _, schema := range g.wsdl.Types.Schemas {
-			for _, el := range schema.Elements {
-				if strings.EqualFold(elRef, el.Name) {
-					if el.Type != "" {
-						return stripns(el.Type)
-					}
-					return el.Name
+// findElementType looks up an element by name and returns its type
+func (g *GoWSDL) findElementType(elementName string) string {
+	elRef := stripns(elementName)
+	
+	var schemas []*XSDSchema
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		schemas = g.wsdl2.Types.Schemas
+	} else if g.wsdl != nil {
+		schemas = g.wsdl.Types.Schemas
+	}
+
+	for _, schema := range schemas {
+		for _, el := range schema.Elements {
+			if strings.EqualFold(elRef, el.Name) {
+				if el.Type != "" {
+					return stripns(el.Type)
 				}
+				return el.Name
 			}
 		}
 	}
@@ -915,12 +978,39 @@ func (g *GoWSDL) findType(message string) string {
 
 // Given a type, check if there's an Element with that type, and return its name.
 func (g *GoWSDL) findNameByType(name string) string {
-	return newTraverser(nil, g.wsdl.Types.Schemas).findNameByType(name)
+	var schemas []*XSDSchema
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		schemas = g.wsdl2.Types.Schemas
+	} else if g.wsdl != nil {
+		schemas = g.wsdl.Types.Schemas
+	}
+	return newTraverser(nil, schemas).findNameByType(name)
 }
 
 // TODO(c4milo): Add support for namespaces instead of striping them out
 // TODO(c4milo): improve runtime complexity if performance turns out to be an issue.
 func (g *GoWSDL) findSOAPAction(operation, portType string) string {
+	// Handle WSDL 2.0
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		for _, binding := range g.wsdl2.Bindings {
+			if !strings.EqualFold(stripns(binding.Interface), portType) {
+				continue
+			}
+
+			for _, soapOp := range binding.Operations {
+				if stripns(soapOp.Ref) == operation {
+					return soapOp.SOAPAction
+				}
+			}
+		}
+		return ""
+	}
+
+	// Handle WSDL 1.1
+	if g.wsdl == nil {
+		return ""
+	}
+
 	for _, binding := range g.wsdl.Binding {
 		if !strings.EqualFold(stripns(binding.Type), portType) {
 			continue
@@ -936,6 +1026,23 @@ func (g *GoWSDL) findSOAPAction(operation, portType string) string {
 }
 
 func (g *GoWSDL) findServiceAddress(name string) string {
+	// Handle WSDL 2.0
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		for _, service := range g.wsdl2.Services {
+			for _, endpoint := range service.Endpoints {
+				if endpoint.Name == name {
+					return endpoint.Address
+				}
+			}
+		}
+		return ""
+	}
+
+	// Handle WSDL 1.1
+	if g.wsdl == nil {
+		return ""
+	}
+
 	for _, service := range g.wsdl.Service {
 		for _, port := range service.Ports {
 			if port.Name == name {
