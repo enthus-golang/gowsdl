@@ -1,9 +1,21 @@
-package gowsdl
+package parser
 
 import (
 	"encoding/xml"
 	"strings"
 )
+
+// stripns removes the namespace prefix from a qualified name
+func stripns(xsdType string) string {
+	if xsdType == "" {
+		return ""
+	}
+	split := strings.Split(xsdType, ":")
+	if len(split) == 2 {
+		return split[1]
+	}
+	return xsdType
+}
 
 type traverseMode int32
 
@@ -22,7 +34,8 @@ type traverser struct {
 	conflictingTypeUsage bool
 }
 
-func newTraverser(c *XSDSchema, all []*XSDSchema) *traverser {
+// NewTraverser creates a new traverser for schema resolution
+func NewTraverser(c *XSDSchema, all []*XSDSchema) *traverser {
 	return &traverser{
 		c:   c,
 		all: all,
@@ -30,7 +43,8 @@ func newTraverser(c *XSDSchema, all []*XSDSchema) *traverser {
 	}
 }
 
-func (t *traverser) traverse() {
+// Traverse performs the traversal
+func (t *traverser) Traverse() {
 	t.tm = refResolution
 
 	for _, ct := range t.c.ComplexTypes {

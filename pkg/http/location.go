@@ -2,10 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package gowsdl
+package http
 
 import (
+	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 )
 
@@ -59,6 +61,11 @@ func (r *Location) Parse(ref string) (*Location, error) {
 	return &Location{f: filepath.Join(filepath.Dir(r.f), ref)}, nil
 }
 
+// IsLocal determines whether the Location contains a file path.
+func (r *Location) IsLocal() bool {
+	return r.f != ""
+}
+
 // IsFile determines whether the Location contains a file path.
 func (r *Location) isFile() bool {
 	return r.f != ""
@@ -67,6 +74,27 @@ func (r *Location) isFile() bool {
 // IsFile determines whether the Location contains URL.
 func (r *Location) isURL() bool {
 	return r.u != nil
+}
+
+// URL returns the URL string if this is a URL location
+func (r *Location) URL() string {
+	if r.u != nil {
+		return r.u.String()
+	}
+	return ""
+}
+
+// Path returns the file path if this is a file location
+func (r *Location) Path() string {
+	return r.f
+}
+
+// ReadFile reads the file if it's local
+func (r *Location) ReadFile() ([]byte, error) {
+	if !r.IsLocal() {
+		return nil, fmt.Errorf("cannot read remote file: %s", r.URL())
+	}
+	return os.ReadFile(r.f)
 }
 
 // String reassembles the Location either into a valid URL string or a file path.

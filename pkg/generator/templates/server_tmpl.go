@@ -1,4 +1,4 @@
-package gowsdl
+package templates
 
 var serverTmpl = `
 

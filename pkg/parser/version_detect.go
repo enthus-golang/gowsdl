@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package gowsdl
+package parser
 
 import (
 	"bytes"
@@ -11,8 +11,8 @@ import (
 	"io"
 )
 
-// detectWSDLVersion detects whether the WSDL is version 1.1 or 2.0
-func detectWSDLVersion(data []byte) (string, error) {
+// DetectWSDLVersion detects whether the WSDL is version 1.1 or 2.0
+func DetectWSDLVersion(data []byte) (string, error) {
 	decoder := xml.NewDecoder(bytes.NewReader(data))
 	
 	for {
