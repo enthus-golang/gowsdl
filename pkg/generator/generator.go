@@ -23,21 +23,17 @@ import (
 
 // Generator handles WSDL code generation
 type Generator struct {
-	loc                   *http.Location
-	rawWSDL               []byte
-	pkg                   string
-	ignoreTLS             bool
-	makePublicFn          func(string) string
-	wsdl                  *parser.WSDL
-	wsdl2                 *parser.WSDL2
-	wsdlVersion           string // "1.1" or "2.0"
-	resolvedXSDExternals  map[string]bool
-	currentRecursionLevel uint8
-	currentNamespace      string
-	httpConfig            http.HTTPConfig
-	useGenerics           bool
-	namespaceManager      *core.NamespaceManager
-	typeMapper            *types.TypeMapper
+	loc              *http.Location
+	rawWSDL          []byte
+	pkg              string
+	makePublicFn     func(string) string
+	wsdl             *parser.WSDL
+	wsdl2            *parser.WSDL2
+	wsdlVersion      string // "1.1" or "2.0"
+	httpConfig       http.HTTPConfig
+	useGenerics      bool
+	namespaceManager *core.NamespaceManager
+	typeMapper       *types.TypeMapper
 }
 
 // Option defines a function that configures Generator

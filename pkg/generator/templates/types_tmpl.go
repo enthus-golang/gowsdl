@@ -4,7 +4,7 @@
 
 package templates
 
-var typesTmpl = `
+var _ = `
 {{define "SimpleType"}}
 	{{$typeName := replaceReservedWords .Name | makePublic}}
 	{{if .Doc}} {{.Doc | comment}} {{end}}

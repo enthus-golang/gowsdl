@@ -4,7 +4,8 @@
 
 package templates
 
-var wsdl2OpsTmpl = `
+// Unused template - kept for potential future use
+var _ = `
 {{range .}}
 	{{$privateType := .Name | makePrivate}}
 	{{$exportType := .Name | makePublic}}

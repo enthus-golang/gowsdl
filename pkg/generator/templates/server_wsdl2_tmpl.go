@@ -1,6 +1,6 @@
 package templates
 
-var wsdl2ServerTmpl = `
+var _ = `
 
 var WSDLUndefinedError = errors.New("Server was unable to process request. --> Object reference not set to an instance of an object.")
 
@@ -15,7 +15,7 @@ type SOAPBodyRequest struct {
 		{{range .Operations}}
 			{{if .Input}}
 				{{$requestType := findType .Input.Element | replaceReservedWords | makePublic}} ` + `
-  				{{$requestType}} *{{$requestType}} ` + "`" + `xml:,omitempty` + "`" + `
+  				{{$requestType}} *{{$requestType}} ` + "`" + `xml:",omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 	{{end}}

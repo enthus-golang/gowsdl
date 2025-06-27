@@ -5,33 +5,17 @@ import (
 	"strings"
 )
 
-// stripns removes the namespace prefix from a qualified name
-func stripns(xsdType string) string {
-	if xsdType == "" {
-		return ""
-	}
-	split := strings.Split(xsdType, ":")
-	if len(split) == 2 {
-		return split[1]
-	}
-	return xsdType
-}
 
 type traverseMode int32
 
 const (
 	refResolution traverseMode = iota
-	findNameByType
 )
 
 type traverser struct {
 	c   *XSDSchema
 	all []*XSDSchema
 	tm  traverseMode
-	// fields used by findNameByType mode
-	typeName             string
-	foundElmName         string
-	conflictingTypeUsage bool
 }
 
 // NewTraverser creates a new traverser for schema resolution
@@ -58,45 +42,6 @@ func (t *traverser) Traverse() {
 	}
 }
 
-// Given a type, check if there is an Element with that type, and return its name.
-// If multiple elements with identical names of the given type are found,
-// the name is returned.
-// If multiple elements with different names of the given type are found,
-// the original type name is returned instead.
-// If no elements are found, the original type name is returned instead.
-func (t *traverser) findNameByType(name string) string {
-	t.initFindNameByType(name)
-
-	// Search for elements of given type
-	for _, schema := range t.all {
-		for _, elm := range schema.Elements {
-			t.traverseElement(elm)
-		}
-		for _, ct := range schema.ComplexTypes {
-			t.traverseComplexType(ct)
-		}
-		for _, st := range schema.SimpleType {
-			t.traverseSimpleType(st)
-		}
-	}
-
-	// Return found element name if given type is used only once
-	if len(t.foundElmName) > 0 && !t.conflictingTypeUsage {
-		return t.foundElmName
-	}
-
-	// Return original type name
-	// No element found or conflicting element names found
-	return t.typeName
-}
-
-func (t *traverser) initFindNameByType(name string) {
-	// Initialize fields for processing
-	t.tm = findNameByType
-	t.typeName = stripns(name)
-	t.foundElmName = ""
-	t.conflictingTypeUsage = false
-}
 
 func (t *traverser) traverseElements(ct []*XSDElement) {
 	for _, elm := range ct {
@@ -130,7 +75,6 @@ func (t *traverser) traverseElement(elm *XSDElement) {
 		}
 	}
 
-	t.findElmName(elm)
 
 	if elm.ComplexType != nil {
 		t.traverseComplexType(elm.ComplexType)
@@ -140,27 +84,6 @@ func (t *traverser) traverseElement(elm *XSDElement) {
 	}
 }
 
-func (t *traverser) findElmName(elm *XSDElement) {
-	// Check if we are called by findNameByType
-	if t.tm != findNameByType {
-		return
-	}
-
-	// Conflicting type usage already detected -> no need to search any further
-	if t.conflictingTypeUsage {
-		return
-	}
-
-	if stripns(elm.Type) == t.typeName {
-		if len(t.foundElmName) == 0 {
-			// First time usage t.typeName
-			t.foundElmName = elm.Name
-		} else if t.foundElmName != elm.Name {
-			// Duplicate use of t.typeName with different element names
-			t.conflictingTypeUsage = true
-		}
-	}
-}
 
 func (t *traverser) traverseSimpleType(st *XSDSimpleType) {
 }
