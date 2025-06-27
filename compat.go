@@ -8,10 +8,10 @@ import (
 	"crypto/tls"
 	"time"
 
-	"github.com/hooklift/gowsdl/pkg/core"
-	"github.com/hooklift/gowsdl/pkg/http"
-	"github.com/hooklift/gowsdl/pkg/parser"
-	"github.com/hooklift/gowsdl/pkg/types"
+	"github.com/enthus-golang/gowsdl/pkg/core"
+	"github.com/enthus-golang/gowsdl/pkg/http"
+	"github.com/enthus-golang/gowsdl/pkg/parser"
+	"github.com/enthus-golang/gowsdl/pkg/types"
 )
 
 // Re-export types for backward compatibility

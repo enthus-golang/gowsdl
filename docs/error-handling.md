@@ -66,7 +66,7 @@ Common validation errors:
 Use `errors.As` to check for specific error types:
 
 ```go
-import "github.com/hooklift/gowsdl"
+import "github.com/enthus-golang/gowsdl"
 
 g, err := gowsdl.NewGoWSDL(wsdlPath, "myservice", false, true)
 if err != nil {

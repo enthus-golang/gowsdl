@@ -71,8 +71,8 @@ func TestIntegrationRealWSDLFiles(t *testing.T) {
 
 go 1.21
 
-require github.com/hooklift/gowsdl v0.0.0
-replace github.com/hooklift/gowsdl => ` + getRootDir()
+require github.com/enthus-golang/gowsdl v0.0.0
+replace github.com/enthus-golang/gowsdl => ` + getRootDir()
 
 			err = os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(goModContent), 0644)
 			require.NoError(t, err)
@@ -210,10 +210,10 @@ go 1.21
 
 require (
 	github.com/stretchr/testify v1.10.0
-	github.com/hooklift/gowsdl v0.0.0
+	github.com/enthus-golang/gowsdl v0.0.0
 )
 
-replace github.com/hooklift/gowsdl => ` + getRootDir()
+replace github.com/enthus-golang/gowsdl => ` + getRootDir()
 
 	err = os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(goModContent), 0644)
 	require.NoError(t, err)

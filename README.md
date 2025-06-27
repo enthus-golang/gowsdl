@@ -1,10 +1,10 @@
 # WSDL to Go
 
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/hooklift/gowsdl?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![GoDoc](https://godoc.org/github.com/hooklift/gowsdl?status.svg)](https://godoc.org/github.com/hooklift/gowsdl)
-[![Build Status](https://github.com/hooklift/gowsdl/workflows/Test/badge.svg)](https://github.com/hooklift/gowsdl/actions)
+[![GoDoc](https://godoc.org/github.com/enthus-golang/gowsdl?status.svg)](https://godoc.org/github.com/enthus-golang/gowsdl)
+[![Build Status](https://github.com/enthus-golang/gowsdl/workflows/Test/badge.svg)](https://github.com/enthus-golang/gowsdl/actions)
 [![codecov](https://codecov.io/gh/hooklift/gowsdl/branch/main/graph/badge.svg)](https://codecov.io/gh/hooklift/gowsdl)
-[![Go Report Card](https://goreportcard.com/badge/github.com/hooklift/gowsdl)](https://goreportcard.com/report/github.com/hooklift/gowsdl)
+[![Go Report Card](https://goreportcard.com/badge/github.com/enthus-golang/gowsdl)](https://goreportcard.com/report/github.com/enthus-golang/gowsdl)
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
 
 Generates idiomatic Go code from WSDL files with support for WSDL 1.1, WSDL 2.0, and modern Go features including generics.
@@ -15,9 +15,9 @@ Generates idiomatic Go code from WSDL files with support for WSDL 1.1, WSDL 2.0,
 
 ### Install
 
-* [Download release](https://github.com/hooklift/gowsdl/releases)
+* [Download release](https://github.com/enthus-golang/gowsdl/releases)
 * Download and build locally
-    * Go 1.21+: `go install github.com/hooklift/gowsdl/cmd/gowsdl@latest`
+    * Go 1.21+: `go install github.com/enthus-golang/gowsdl/cmd/gowsdl@latest`
 * Install from Homebrew: `brew install gowsdl`
 
 ### Goals
@@ -164,7 +164,7 @@ When working with local WSDL files that reference external schemas:
 This implementation addresses all the features requested in [issue #10](https://github.com/enthus-golang/gowsdl/issues/10), including the original TODOs:
 
 - ✅ **Support for generating namespaces** (main.go:41) - Complete namespace management system
-- ✅ **Resolve XSD element references** (main.go:39) - Full element reference resolution  
+- ✅ **Resolve XSD element references** (main.go:39) - Full element reference resolution
 - ✅ **Local schema resolution** (main.go:37) - Enhanced local and remote schema handling
 - ✅ **WSDL 2.0 Support** - Complete parsing and code generation
 - ✅ **Better error messages** - Contextual errors with suggestions

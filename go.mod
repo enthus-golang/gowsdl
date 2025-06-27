@@ -1,4 +1,4 @@
-module github.com/hooklift/gowsdl
+module github.com/enthus-golang/gowsdl
 
 go 1.21
 

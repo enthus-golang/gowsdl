@@ -13,12 +13,12 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/hooklift/gowsdl/pkg/core"
-	"github.com/hooklift/gowsdl/pkg/generator/templates"
-	"github.com/hooklift/gowsdl/pkg/http"
-	"github.com/hooklift/gowsdl/pkg/parser"
-	"github.com/hooklift/gowsdl/pkg/types"
-	"github.com/hooklift/gowsdl/pkg/utils"
+	"github.com/enthus-golang/gowsdl/pkg/core"
+	"github.com/enthus-golang/gowsdl/pkg/generator/templates"
+	"github.com/enthus-golang/gowsdl/pkg/http"
+	"github.com/enthus-golang/gowsdl/pkg/parser"
+	"github.com/enthus-golang/gowsdl/pkg/types"
+	"github.com/enthus-golang/gowsdl/pkg/utils"
 )
 
 // Generator handles WSDL code generation

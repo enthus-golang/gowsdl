@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/hooklift/gowsdl/pkg/types"
+	"github.com/enthus-golang/gowsdl/pkg/types"
 )
 
 // HTTPConfig interface defines methods required by the downloader
