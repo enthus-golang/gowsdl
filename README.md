@@ -230,22 +230,24 @@ gowsdl/
 
 ```bash
 # Run all tests
-make test
+go test -v -race ./...
 
 # Run tests with coverage report
-make test-coverage
+go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+go tool cover -html=coverage.out -o coverage.html
 
 # Run integration tests
-make test-integration
+go test -tags=integration -v ./...
 
 # Run benchmarks
-make test-benchmarks
+go test -bench=. -benchmem ./...
 
-# Run linter
-make lint
+# Run linter (install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
+golangci-lint run
 
 # Update dependencies
-make update-deps
+go get -u ./...
+go mod tidy
 ```
 
 ### Contributing
@@ -257,9 +259,9 @@ make update-deps
 5. Open a Pull Request
 
 Please ensure:
-- All tests pass (`make test`)
-- Code coverage remains above 80% (`make test-coverage`)
-- Linter passes (`make lint`)
+- All tests pass (`go test -v -race ./...`)
+- Code coverage remains above 80% (`go test -coverprofile=coverage.out ./...`)
+- Linter passes (`golangci-lint run`)
 - New features include appropriate tests
 
 ### License

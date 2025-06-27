@@ -79,23 +79,32 @@ The project follows the standard Go project layout:
 ### Build and Test Commands
 
 ```bash
+# Build the project
+go build ./cmd/gowsdl
+
 # Run all tests
-make test
+go test -v -race ./...
 
 # Run tests with coverage
-make test-coverage
+go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+go tool cover -html=coverage.out -o coverage.html
+go tool cover -func=coverage.out | grep total
 
 # Run integration tests
-make test-integration
+go test -tags=integration -v ./...
 
 # Run benchmarks
-make test-benchmarks
+go test -bench=. -benchmem ./...
 
-# Run linter
-make lint
+# Run linter (install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
+golangci-lint run
 
 # Update dependencies
-make update-deps
+go get -u ./...
+go mod tidy
+
+# Install the tool locally
+go install ./cmd/gowsdl
 ```
 
 ## Common Development Tasks
@@ -148,7 +157,7 @@ if err != nil {
 - `pkg/generator/generator.go`: Main code generation logic
 - `pkg/parser/parser.go`: WSDL parsing interface
 - `pkg/http/client.go`: HTTP client configuration
-- `Makefile`: Build and test automation
+- `.github/workflows/`: CI/CD configuration
 
 ## Dependencies
 
@@ -188,7 +197,7 @@ Always maintain backward compatibility:
 
 ## Release Process
 
-1. Update version in `Makefile`
+1. Update version in code/tags
 2. Update CHANGELOG
 3. Create git tag
 4. GitHub Actions handles the rest
