@@ -51,7 +51,7 @@ const TypesTemplate = `
 			{{end}}
 		{{else if .ComplexType}}
 			{{/* Handle inline complex types */}}
-			{{if .ComplexType.SimpleContent}}
+			{{if .ComplexType.SimpleContent.Extension.Base}}
 				{{/* Simple content with attributes - generate inline struct */}}
 				{{if eq .MaxOccurs "unbounded"}}
 					{{$memberName}} []struct {
@@ -70,8 +70,175 @@ const TypesTemplate = `
 						{{end}}
 					} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 				{{end}}
+			{{else if or .ComplexType.Sequence .ComplexType.Choice .ComplexType.All}}
+				{{/* Complex type with sequence/choice/all - generate inline struct */}}
+				{{if eq .MaxOccurs "unbounded"}}
+					{{$memberName}} []struct {
+						{{range .ComplexType.Sequence}}
+							{{$seqMemberName := .Name | replaceReservedWords | makePublic}}
+							{{if .Type}}
+								{{$seqTypeName := .Type | removeNamespacePrefix}}
+								{{$seqMemberType := toGoType $seqTypeName .Nillable}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$seqMemberName}} []{{$seqMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$seqMemberName}} {{$seqMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{else if .ComplexType}}
+								{{/* Handle nested complex type */}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$seqMemberName}} []struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$seqMemberName}} struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{else}}
+								{{$seqMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+							{{end}}
+						{{end}}
+						{{range .ComplexType.Choice}}
+							{{$choiceMemberName := .Name | replaceReservedWords | makePublic}}
+							{{if .Type}}
+								{{$choiceTypeName := .Type | removeNamespacePrefix}}
+								{{$choiceMemberType := toGoType $choiceTypeName .Nillable}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$choiceMemberName}} []{{$choiceMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$choiceMemberName}} {{$choiceMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{else if .ComplexType}}
+								{{/* Handle nested complex type */}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$choiceMemberName}} []struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$choiceMemberName}} struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{else}}
+								{{$choiceMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+							{{end}}
+						{{end}}
+						{{range .ComplexType.All}}
+							{{$allMemberName := .Name | replaceReservedWords | makePublic}}
+							{{if .Type}}
+								{{$allTypeName := .Type | removeNamespacePrefix}}
+								{{$allMemberType := toGoType $allTypeName .Nillable}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$allMemberName}} []{{$allMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$allMemberName}} {{$allMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{else if .ComplexType}}
+								{{/* Handle nested complex type */}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$allMemberName}} []struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$allMemberName}} struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{else}}
+								{{$allMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+							{{end}}
+						{{end}}
+						{{range .ComplexType.Attributes}}
+							{{$attrName := .Name | replaceReservedWords | makePublic}}
+							{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+						{{end}}
+					} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{else}}
+					{{$memberName}} struct {
+						{{range .ComplexType.Sequence}}
+							{{$seqMemberName := .Name | replaceReservedWords | makePublic}}
+							{{if .Type}}
+								{{$seqTypeName := .Type | removeNamespacePrefix}}
+								{{$seqMemberType := toGoType $seqTypeName .Nillable}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$seqMemberName}} []{{$seqMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$seqMemberName}} {{$seqMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{else if .ComplexType}}
+								{{/* Handle nested complex type */}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$seqMemberName}} []struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$seqMemberName}} struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{else}}
+								{{$seqMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+							{{end}}
+						{{end}}
+						{{range .ComplexType.Choice}}
+							{{$choiceMemberName := .Name | replaceReservedWords | makePublic}}
+							{{if .Type}}
+								{{$choiceTypeName := .Type | removeNamespacePrefix}}
+								{{$choiceMemberType := toGoType $choiceTypeName .Nillable}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$choiceMemberName}} []{{$choiceMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$choiceMemberName}} {{$choiceMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{else if .ComplexType}}
+								{{/* Handle nested complex type */}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$choiceMemberName}} []struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$choiceMemberName}} struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{else}}
+								{{$choiceMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+							{{end}}
+						{{end}}
+						{{range .ComplexType.All}}
+							{{$allMemberName := .Name | replaceReservedWords | makePublic}}
+							{{if .Type}}
+								{{$allTypeName := .Type | removeNamespacePrefix}}
+								{{$allMemberType := toGoType $allTypeName .Nillable}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$allMemberName}} []{{$allMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$allMemberName}} {{$allMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{else if .ComplexType}}
+								{{/* Handle nested complex type */}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$allMemberName}} []struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$allMemberName}} struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{else}}
+								{{$allMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+							{{end}}
+						{{end}}
+						{{range .ComplexType.Attributes}}
+							{{$attrName := .Name | replaceReservedWords | makePublic}}
+							{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+						{{end}}
+					} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{end}}
 			{{else}}
-				{{/* Regular complex type */}}
+				{{/* Regular complex type without sequence - fallback to using element name as type */}}
 				{{$typeName := .Name}}
 				{{$memberType := toGoType $typeName .Nillable}}
 				{{if eq .MaxOccurs "unbounded"}}
