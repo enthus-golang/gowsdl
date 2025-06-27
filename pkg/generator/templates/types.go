@@ -84,6 +84,17 @@ const TypesTemplate = `
 								{{else}}
 									{{$seqMemberName}} {{$seqMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{end}}
+							{{else if .ComplexType}}
+								{{/* Handle nested complex type */}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$seqMemberName}} []struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$seqMemberName}} struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
 							{{else}}
 								{{$seqMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 							{{end}}
@@ -98,6 +109,17 @@ const TypesTemplate = `
 								{{else}}
 									{{$choiceMemberName}} {{$choiceMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{end}}
+							{{else if .ComplexType}}
+								{{/* Handle nested complex type */}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$choiceMemberName}} []struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$choiceMemberName}} struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
 							{{else}}
 								{{$choiceMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 							{{end}}
@@ -111,6 +133,17 @@ const TypesTemplate = `
 									{{$allMemberName}} []{{$allMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{else}}
 									{{$allMemberName}} {{$allMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{else if .ComplexType}}
+								{{/* Handle nested complex type */}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$allMemberName}} []struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$allMemberName}} struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{end}}
 							{{else}}
 								{{$allMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
@@ -133,6 +166,17 @@ const TypesTemplate = `
 								{{else}}
 									{{$seqMemberName}} {{$seqMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{end}}
+							{{else if .ComplexType}}
+								{{/* Handle nested complex type */}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$seqMemberName}} []struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$seqMemberName}} struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
 							{{else}}
 								{{$seqMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 							{{end}}
@@ -147,6 +191,17 @@ const TypesTemplate = `
 								{{else}}
 									{{$choiceMemberName}} {{$choiceMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{end}}
+							{{else if .ComplexType}}
+								{{/* Handle nested complex type */}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$choiceMemberName}} []struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$choiceMemberName}} struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
 							{{else}}
 								{{$choiceMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 							{{end}}
@@ -160,6 +215,17 @@ const TypesTemplate = `
 									{{$allMemberName}} []{{$allMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{else}}
 									{{$allMemberName}} {{$allMemberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{else if .ComplexType}}
+								{{/* Handle nested complex type */}}
+								{{if eq .MaxOccurs "unbounded"}}
+									{{$allMemberName}} []struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{else}}
+									{{$allMemberName}} struct {
+										{{template "ComplexTypeInline" .ComplexType}}
+									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{end}}
 							{{else}}
 								{{$allMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `

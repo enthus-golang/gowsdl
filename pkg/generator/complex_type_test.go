@@ -80,6 +80,46 @@ func TestComplexTypeFromOriginalWSDL(t *testing.T) {
 		Value string`, "Abholadresse should not have just Value field")
 }
 
+func TestNestedComplexTypes(t *testing.T) {
+	// Test deeply nested complex types as identified by Gemini's review
+	wsdlFile := "../../fixtures/nested_complex_type_test.wsdl"
+	
+	gen, err := New(wsdlFile, WithPackage("testpkg"))
+	require.NoError(t, err)
+	
+	code, err := gen.Generate(context.TODO())
+	require.NoError(t, err)
+	
+	// Get the generated code
+	var codeStr string
+	for filename, content := range code {
+		t.Logf("Generated file: %s", filename)
+		codeStr += string(content) + "\n"
+	}
+	
+	// Check that Company type exists
+	assert.Contains(t, codeStr, "type Company struct {")
+	
+	// Check that Department is an inline struct
+	assert.Contains(t, codeStr, "Department struct {")
+	assert.Contains(t, codeStr, "DeptName string")
+	
+	// Check that Manager is a nested struct within Department
+	assert.Contains(t, codeStr, "Manager struct {")
+	assert.Contains(t, codeStr, "FirstName string")
+	assert.Contains(t, codeStr, "LastName string")
+	assert.Contains(t, codeStr, "Email string")
+	
+	// Check that Employees is an array of structs
+	assert.Contains(t, codeStr, "Employees []struct {")
+	assert.Contains(t, codeStr, "EmployeeId int32")
+	assert.Contains(t, codeStr, "Role string")
+	
+	// Ensure nested complex types don't fallback to string
+	assert.NotContains(t, codeStr, "Manager string")
+	assert.NotContains(t, codeStr, "Employees string")
+}
+
 func fileExists(path string) bool {
 	// Simple file existence check
 	_, err := os.Stat(path)
