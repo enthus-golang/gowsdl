@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hooklift/gowsdl/pkg/types"
+	"github.com/enthus-golang/gowsdl/pkg/types"
 )
 
 func TestWSDLError(t *testing.T) {

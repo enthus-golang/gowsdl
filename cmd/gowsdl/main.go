@@ -59,7 +59,7 @@ import (
 	"strings"
 	"time"
 
-	gen "github.com/hooklift/gowsdl"
+	gen "github.com/enthus-golang/gowsdl"
 )
 
 // Version is initialized in compilation time by go build.

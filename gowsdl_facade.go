@@ -9,8 +9,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/hooklift/gowsdl/pkg/generator"
-	"github.com/hooklift/gowsdl/pkg/utils"
+	"github.com/enthus-golang/gowsdl/pkg/generator"
+	"github.com/enthus-golang/gowsdl/pkg/utils"
 )
 
 // GoWSDL is the main facade for WSDL code generation

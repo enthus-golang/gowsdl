@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hooklift/gowsdl/pkg/parser"
+	"github.com/enthus-golang/gowsdl/pkg/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
