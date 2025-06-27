@@ -8,7 +8,6 @@ package templates
 const TypesTemplate = `
 {{define "SimpleType"}}
 	{{$type := replaceReservedWords .Name | makePublic}}
-	{{if .Doc}} {{comment .Doc}} {{end}}
 	{{if ne .List.ItemType ""}}
 		type {{$type}} []{{toGoType .List.ItemType false}}
 	{{else if ne .Union.MemberTypes ""}}
@@ -19,8 +18,8 @@ const TypesTemplate = `
 
 			const (
 				{{range .Restriction.Enumeration}}
-					{{with .Doc}} {{comment .}} {{end}}
-					{{$type}}_{{$value := replaceReservedWords .Value}}{{$value | makePublic}} {{$type}} = "{{goString .Value}}" {{end}}
+					{{$enumName := .Value | sanitizeEnumValue | replaceReservedWords | makePublic}}
+					{{$type}}{{$enumName}} {{$type}} = "{{goString .Value}}" {{end}}
 			)
 		{{else}}
 			type {{$type}} {{toGoType .Restriction.Base false}}
@@ -29,7 +28,6 @@ const TypesTemplate = `
 {{end}}
 
 {{define "ComplexTypeInline"}}
-	{{$type := replaceReservedWords .Name | makePublic}}
 	{{with .ComplexContent}}
 		{{if ne .Extension.Base ""}}
 			{{if eq .Extension.Base "soap:Header"}}
@@ -40,42 +38,69 @@ const TypesTemplate = `
 		{{end}}
 	{{end}}
 
-	{{if ne (len .Sequence) 0}}
-		{{range .Sequence}}
-			{{$memberName := .Name | makePublic | replaceReservedWords}}
-			{{$typeName := ""}}
-			{{if ne .Ref ""}}
-				{{$memberName = .Ref | makePublic | replaceReservedWords | removeNamespacePrefix}}
-				{{$typeName = .Ref | removeNamespacePrefix}}
-			{{else if eq .Type ""}}
-				{{$typeName = .Name}}
-			{{else}}
-				{{$typeName = .Type | removeNamespacePrefix}}
-			{{end}}
+	{{range .Sequence}}
+		{{$memberName := .Name | replaceReservedWords | makePublic}}
+		{{if ne .Ref ""}}
+			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makePublic}}
+			{{$typeName := .Ref | removeNamespacePrefix}}
 			{{$memberType := toGoType $typeName .Nillable}}
-			{{if .Doc}} {{comment .Doc}} {{end}}
-			{{if ne .Min ""}}
-				// min: {{.Min}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
-			{{if ne .Max ""}}
-				{{if eq .Max "unbounded"}}
-					{{if eq $memberType "string"}}
-						XMLName xml.Name ` + "`" + `xml:"{{.Name}}"` + "`" + ` {{$memberName}} []{{$memberType}} ` + "`" + `xml:",chardata"` + "`" + `{{if ne .Type ""}} // {{.Type}} {{end}}
-					{{else}}
-						{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `{{if ne .Type ""}} // {{.Type}} {{end}}
-					{{end}}
+		{{else if .ComplexType}}
+			{{/* Handle inline complex types */}}
+			{{if .ComplexType.SimpleContent}}
+				{{/* Simple content with attributes - generate inline struct */}}
+				{{if eq .MaxOccurs "unbounded"}}
+					{{$memberName}} []struct {
+						Value {{toGoType .ComplexType.SimpleContent.Extension.Base false}} ` + "`" + `xml:",chardata" json:"-,"` + "`" + `
+						{{range .ComplexType.SimpleContent.Extension.Attributes}}
+							{{$attrName := .Name | replaceReservedWords | makePublic}}
+							{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{getTargetNamespace}} {{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+						{{end}}
+					} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 				{{else}}
-					// max: {{.Max}}
+					{{$memberName}} struct {
+						Value {{toGoType .ComplexType.SimpleContent.Extension.Base false}} ` + "`" + `xml:",chardata" json:"-,"` + "`" + `
+						{{range .ComplexType.SimpleContent.Extension.Attributes}}
+							{{$attrName := .Name | replaceReservedWords | makePublic}}
+							{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{getTargetNamespace}} {{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+						{{end}}
+					} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 				{{end}}
 			{{else}}
-				{{$xmlTag := makeValidXmlTag .Name $memberName}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{$xmlTag}},omitempty"` + "`" + `{{if ne .Type ""}} // {{.Type}} {{end}}
+				{{/* Regular complex type */}}
+				{{$typeName := .Name}}
+				{{$memberType := toGoType $typeName .Nillable}}
+				{{if eq .MaxOccurs "unbounded"}}
+					{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{else}}
+					{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{end}}
+			{{end}}
+		{{else if eq .Type ""}}
+			{{$typeName := .Name}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{end}}
+		{{else}}
+			{{$typeName := .Type | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 	{{end}}
 
 	{{range .Attributes}}
-		{{with .Doc}} {{comment .}} {{end}}
+		
 		{{$name := .Name}}
 		{{if eq .Name "Id"}}
 			{{$name = "IdAttr"}}
@@ -83,7 +108,7 @@ const TypesTemplate = `
 		{{if eq .Name "id"}}
 			{{$name = "idAttr"}}
 		{{end}}
-		{{replaceAttrReservedWords $name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty"` + "`" + `
+		{{replaceAttrReservedWords $name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{getTargetNamespace}} {{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 	{{end}}
 
 	{{if ne (len .Any) 0}}
@@ -93,15 +118,22 @@ const TypesTemplate = `
 
 {{define "ComplexType"}}
 	{{$type := replaceReservedWords .Name | makePublic}}
-	{{if .Doc}} {{comment .Doc}} {{end}}
-	{{if eq .Abstract "true"}}
+	{{if .Abstract}}
 		// {{$type}} is abstract
 	{{end}}
 	type {{$type}} struct {
 		{{template "ComplexTypeInline" .}}
 		{{with .ComplexContent}}
-			{{with .Extension}}
-				{{template "ComplexTypeInline" .}}
+			{{if ne .Extension.Base ""}}
+				{{if eq .Extension.Base "soap:Header"}}
+					soap.Header
+				{{else}}
+					{{removePointerFromType .Extension.Base | removeNamespacePrefix}}
+				{{end}}
+			{{end}}
+			{{template "Elements" .Extension.Sequence}}
+			{{range .Extension.Attributes}}
+				{{replaceAttrReservedWords .Name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 		{{with .SimpleContent}}
@@ -109,7 +141,7 @@ const TypesTemplate = `
 				Value {{toGoType .Extension.Base false}} ` + "`" + `xml:",chardata"` + "`" + `
 			{{end}}
 			{{range .Extension.Attributes}}
-				{{with .Doc}} {{comment .}} {{end}}
+				
 				{{replaceAttrReservedWords .Name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty"` + "`" + `
 			{{end}}
 		{{end}}
@@ -127,8 +159,33 @@ const TypesTemplate = `
 {{range .Elements}}
 	{{$type := replaceReservedWords .Name | makePublic}}
 	{{if ne .Type ""}}
-		{{if .Doc}} {{comment .Doc}} {{end}}
-		type {{$type}} {{toGoType .Type .Nillable | removePointerFromType}}
+		{{$goType := toGoType .Type .Nillable | removePointerFromType}}
+		type {{$type}} {{$goType}}
+		{{if eq $goType "soap.XSDDateTime"}}
+			func (xdt {{$type}}) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+				return soap.XSDDateTime(xdt).MarshalXML(e, start)
+			}
+
+			func (xdt *{{$type}}) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+				return (*soap.XSDDateTime)(xdt).UnmarshalXML(d, start)
+			}
+		{{else if eq $goType "soap.XSDDate"}}
+			func (xd {{$type}}) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+				return soap.XSDDate(xd).MarshalXML(e, start)
+			}
+
+			func (xd *{{$type}}) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+				return (*soap.XSDDate)(xd).UnmarshalXML(d, start)
+			}
+		{{else if eq $goType "soap.XSDTime"}}
+			func (xt {{$type}}) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+				return soap.XSDTime(xt).MarshalXML(e, start)
+			}
+
+			func (xt *{{$type}}) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+				return (*soap.XSDTime)(xt).UnmarshalXML(d, start)
+			}
+		{{end}}
 	{{else}}
 		{{if .ComplexType}}
 			{{/* ComplexTypeLocal handles global elements with nested complex types */}}
@@ -141,6 +198,7 @@ const TypesTemplate = `
 				{{template "ComplexType" .ComplexType}}
 			{{else}}
 				type {{$outerType}} struct {
+					XMLName xml.Name ` + "`" + `xml:"{{$.TargetNamespace}} {{.Name}}"` + "`" + `
 					{{template "ComplexTypeInline" .ComplexType}}
 				}
 			{{end}}
@@ -155,8 +213,8 @@ const TypesTemplate = `
 							type {{$type}} {{toGoType .Restriction.Base false}}
 							const (
 								{{range .Restriction.Enumeration}}
-									{{with .Doc}} {{comment .}} {{end}}
-									{{$type}}_{{replaceReservedWords .Value | makePublic}} {{$type}} = "{{goString .Value}}"
+									{{$enumName := .Value | sanitizeEnumValue | replaceReservedWords | makePublic}}
+									{{$type}}{{$enumName}} {{$type}} = "{{goString .Value}}"
 								{{end}}
 							)
 						{{else}}
@@ -166,6 +224,22 @@ const TypesTemplate = `
 						type {{$type}} interface{}
 					{{end}}
 				{{end}}
+			{{end}}
+		{{end}}
+	{{end}}
+{{end}}
+
+{{define "Elements"}}
+	{{range .}}
+		{{if ne .Ref ""}}
+			{{removeNamespacePrefix .Ref | replaceReservedWords | makePublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Ref .Nillable}} ` + "`" + `xml:"{{.Ref | removeNamespacePrefix}},omitempty"` + "`" + `
+		{{else}}
+			{{if not .Type}}
+				{{if .ComplexType}}
+					{{template "ComplexTypeInline" .}}
+				{{end}}
+			{{else}}
+				{{replaceReservedWords .Name | makePublic}} {{if eq .MaxOccurs "unbounded"}}[]{{end}}{{toGoType .Type .Nillable}} ` + "`" + `xml:"{{.Name}},omitempty"` + "`" + `
 			{{end}}
 		{{end}}
 	{{end}}

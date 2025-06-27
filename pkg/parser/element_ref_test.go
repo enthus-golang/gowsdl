@@ -1,4 +1,4 @@
-package gowsdl
+package parser
 
 import (
 	"testing"
@@ -55,8 +55,8 @@ func TestElementReferenceResolution(t *testing.T) {
 	
 	// Test element reference resolution
 	t.Run("ResolveElementReference", func(t *testing.T) {
-		traverser := newTraverser(schema1, schemas)
-		traverser.traverse()
+		traverser := NewTraverser(schema1, schemas)
+		traverser.Traverse()
 		
 		// Check if the reference was resolved
 		complexType := schema1.ComplexTypes[0]
@@ -74,8 +74,8 @@ func TestElementReferenceResolution(t *testing.T) {
 	})
 
 	t.Run("CrossSchemaElementReference", func(t *testing.T) {
-		traverser := newTraverser(schema2, schemas)
-		traverser.traverse()
+		traverser := NewTraverser(schema2, schemas)
+		traverser.Traverse()
 		
 		// Check if the cross-schema reference was resolved
 		complexType := schema2.ComplexTypes[0]
@@ -119,8 +119,8 @@ func TestElementReferenceResolution(t *testing.T) {
 			},
 		}
 		
-		traverser := newTraverser(schema3, []*XSDSchema{schema3})
-		traverser.traverse()
+		traverser := NewTraverser(schema3, []*XSDSchema{schema3})
+		traverser.Traverse()
 		
 		// Check if complex type was copied
 		complexType := schema3.ComplexTypes[0]

@@ -133,10 +133,10 @@ func (g *Generator) generateCode() (map[string][]byte, error) {
 	
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	errChan := make(chan error, 5)
+	errChan := make(chan error, 6)
 	
 	// Generate all components in parallel
-	wg.Add(5)
+	wg.Add(6)
 	
 	go func() {
 		defer wg.Done()
@@ -189,6 +189,17 @@ func (g *Generator) generateCode() (map[string][]byte, error) {
 		} else {
 			mu.Lock()
 			gocode["server_header"] = data
+			mu.Unlock()
+		}
+	}()
+	
+	go func() {
+		defer wg.Done()
+		if data, err := g.genServerWSDL(); err != nil {
+			errChan <- err
+		} else {
+			mu.Lock()
+			gocode["server_wsdl"] = data
 			mu.Unlock()
 		}
 	}()
@@ -284,12 +295,39 @@ func (g *Generator) genTypes() ([]byte, error) {
 
 	var buf bytes.Buffer
 	
-	// Get types based on version
-	var data interface{}
+	// Merge all schemas into a single data structure
+	data := struct {
+		SimpleType      []*parser.XSDSimpleType
+		ComplexTypes    []*parser.XSDComplexType
+		Elements        []*parser.XSDElement
+		Schemas         []*parser.XSDSchema
+		TargetNamespace string
+	}{}
+	
+	// Get types based on version and merge all schemas
+	var schemas []*parser.XSDSchema
 	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
-		data = g.wsdl2.Types.Schemas
+		schemas = g.wsdl2.Types.Schemas
 	} else if g.wsdl != nil {
-		data = g.wsdl.Types.Schemas
+		schemas = g.wsdl.Types.Schemas
+	}
+	
+	data.Schemas = schemas
+	
+	// Merge all schemas and get first non-empty target namespace
+	for _, schema := range schemas {
+		if data.TargetNamespace == "" && schema.TargetNamespace != "" {
+			data.TargetNamespace = schema.TargetNamespace
+		}
+		if schema.SimpleType != nil {
+			data.SimpleType = append(data.SimpleType, schema.SimpleType...)
+		}
+		if schema.ComplexTypes != nil {
+			data.ComplexTypes = append(data.ComplexTypes, schema.ComplexTypes...)
+		}
+		if schema.Elements != nil {
+			data.Elements = append(data.Elements, schema.Elements...)
+		}
 	}
 	
 	if err := tmpl.Execute(&buf, data); err != nil {
@@ -301,21 +339,27 @@ func (g *Generator) genTypes() ([]byte, error) {
 
 func (g *Generator) genOperations() ([]byte, error) {
 	funcMap := g.createFuncMap()
-	tmpl, err := template.New("operations").Funcs(funcMap).Parse(templates.UnifiedOperationsTemplate)
+	
+	// Choose template based on WSDL version
+	var tmplText string
+	var data interface{}
+	
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		tmplText = templates.OperationsWSDL2Template
+		data = g.wsdl2.Interfaces
+	} else if g.wsdl != nil {
+		tmplText = templates.OperationsWSDL1Template
+		data = g.wsdl.PortTypes
+	} else {
+		return []byte{}, nil
+	}
+	
+	tmpl, err := template.New("operations").Funcs(funcMap).Parse(tmplText)
 	if err != nil {
 		return nil, err
 	}
 
 	var buf bytes.Buffer
-	
-	// Get operations based on version
-	var data interface{}
-	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
-		data = g.wsdl2.Bindings
-	} else if g.wsdl != nil {
-		data = g.wsdl.Binding
-	}
-	
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return nil, err
 	}
@@ -333,6 +377,11 @@ func (g *Generator) genServerHeader() ([]byte, error) {
 	return []byte{}, nil
 }
 
+func (g *Generator) genServerWSDL() ([]byte, error) {
+	// TODO: Implement server WSDL generation
+	return []byte{}, nil
+}
+
 // createFuncMap creates the template function map
 func (g *Generator) createFuncMap() template.FuncMap {
 	return template.FuncMap{
@@ -344,10 +393,13 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"comment":                 comment,
 		"removePointerFromType":   removePointerFromType,
 		"removeNamespacePrefix":   removeNamespacePrefix,
+		"removeNS":                removeNamespacePrefix,
 		"findType":                g.findType,
 		"findSOAPAction":          g.findSOAPAction,
 		"makeValidXmlTag":         makeValidXmlTag,
 		"goString":                goString,
+		"sanitizeEnumValue":       sanitizeEnumValue,
+		"getTargetNamespace":      g.getTargetNamespace,
 	}
 }
 
@@ -390,13 +442,94 @@ func goString(s string) string {
 	return strings.ReplaceAll(s, "\"", "\\\"")
 }
 
-// findType and findSOAPAction are placeholder implementations
+// sanitizeEnumValue converts a string to a valid Go identifier for enum constants
+func sanitizeEnumValue(s string) string {
+	// For backward compatibility, convert the way the original generator did
+	if s == "" {
+		return "EmptyString"
+	}
+	
+	// Remove spaces entirely (don't convert to underscores)
+	s = strings.ReplaceAll(s, " ", "")
+	// Remove hyphens
+	s = strings.ReplaceAll(s, "-", "")
+	// Replace dots with nothing
+	s = strings.ReplaceAll(s, ".", "")
+	// Remove other special characters
+	s = strings.ReplaceAll(s, ":", "")
+	s = strings.ReplaceAll(s, "/", "")
+	s = strings.ReplaceAll(s, "\\", "")
+	s = strings.ReplaceAll(s, "(", "")
+	s = strings.ReplaceAll(s, ")", "")
+	s = strings.ReplaceAll(s, "[", "")
+	s = strings.ReplaceAll(s, "]", "")
+	s = strings.ReplaceAll(s, "{", "")
+	s = strings.ReplaceAll(s, "}", "")
+	s = strings.ReplaceAll(s, ",", "")
+	s = strings.ReplaceAll(s, ";", "")
+	s = strings.ReplaceAll(s, "'", "")
+	s = strings.ReplaceAll(s, "\"", "")
+	
+	// If the result is empty after cleanup, return "Empty"
+	if s == "" {
+		return "Empty"
+	}
+	
+	return s
+}
+
+// findType finds the actual type name from a message reference
 func (g *Generator) findType(message string) string {
-	// TODO: Implement type finding logic
+	// Remove namespace prefix from message name
+	message = removeNamespacePrefix(message)
+	
+	// For WSDL 1.1, messages typically reference elements
+	// Try to find the message and get its part's element/type
+	if g.wsdl != nil {
+		for _, msg := range g.wsdl.Messages {
+			if msg.Name == message {
+				if len(msg.Parts) > 0 {
+					// Get the first part's element or type
+					part := msg.Parts[0]
+					if part.Element != "" {
+						return removeNamespacePrefix(part.Element)
+					}
+					if part.Type != "" {
+						return removeNamespacePrefix(part.Type)
+					}
+				}
+			}
+		}
+	}
+	
+	// For WSDL 2.0, check interfaces
+	if g.wsdl2 != nil {
+		// In WSDL 2.0, operations directly reference elements
+		return message
+	}
+	
+	// Fallback: return the message name without namespace
 	return message
 }
 
 func (g *Generator) findSOAPAction(operation, portType string) string {
 	// TODO: Implement SOAP action finding logic
+	return ""
+}
+
+func (g *Generator) getTargetNamespace() string {
+	// Get the target namespace from the first schema that has one
+	var schemas []*parser.XSDSchema
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		schemas = g.wsdl2.Types.Schemas
+	} else if g.wsdl != nil {
+		schemas = g.wsdl.Types.Schemas
+	}
+	
+	for _, schema := range schemas {
+		if schema.TargetNamespace != "" {
+			return schema.TargetNamespace
+		}
+	}
 	return ""
 }

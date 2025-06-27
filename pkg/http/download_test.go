@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package gowsdl
+package http
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hooklift/gowsdl/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -138,7 +139,7 @@ func TestDownloadFile(t *testing.T) {
 			defer server.Close()
 
 			ctx := context.Background()
-			data, err := downloadFile(ctx, server.URL, tt.config)
+			data, err := DownloadFile(ctx, server.URL, tt.config)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -166,7 +167,7 @@ func TestDownloadFileWithContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	_, err := downloadFile(ctx, server.URL, DefaultHTTPClientConfig())
+	_, err := DownloadFile(ctx, server.URL, DefaultHTTPClientConfig())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "context canceled")
 }
@@ -186,7 +187,7 @@ func TestDownloadFileRateLimit(t *testing.T) {
 
 	// Make 3 requests
 	for i := 0; i < 3; i++ {
-		_, err := downloadFile(context.Background(), server.URL, config)
+		_, err := DownloadFile(context.Background(), server.URL, config)
 		require.NoError(t, err)
 	}
 
@@ -218,7 +219,7 @@ func BenchmarkDownloadFile(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := downloadFile(ctx, server.URL, config)
+		_, err := DownloadFile(ctx, server.URL, config)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -232,10 +233,10 @@ func TestWSDLErrorInDownload(t *testing.T) {
 	defer server.Close()
 
 	config := DefaultHTTPClientConfig()
-	_, err := downloadFile(context.Background(), server.URL, config)
+	_, err := DownloadFile(context.Background(), server.URL, config)
 	
 	require.Error(t, err)
-	var wsdlErr *WSDLError
+	var wsdlErr *types.WSDLError
 	assert.ErrorAs(t, err, &wsdlErr)
 	assert.Equal(t, "download", wsdlErr.Op)
 	assert.Contains(t, wsdlErr.Path, server.URL)

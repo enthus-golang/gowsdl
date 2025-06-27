@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+    xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    targetNamespace="http://example.com/vim">
+    <types>
+        <xsd:schema targetNamespace="http://example.com/vim">
+            <xsd:element name="VimRequest" type="xsd:string"/>
+            <xsd:element name="VimResponse" type="xsd:string"/>
+        </xsd:schema>
+    </types>
+    <message name="VimRequestMessage">
+        <part name="body" element="VimRequest"/>
+    </message>
+    <message name="VimResponseMessage">
+        <part name="body" element="VimResponse"/>
+    </message>
+    <portType name="VimPortType">
+        <operation name="VimOperation">
+            <input message="VimRequestMessage"/>
+            <output message="VimResponseMessage"/>
+        </operation>
+    </portType>
+</definitions>

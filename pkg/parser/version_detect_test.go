@@ -1,4 +1,4 @@
-package gowsdl
+package parser
 
 import (
 	"testing"
@@ -65,7 +65,7 @@ func TestDetectWSDLVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := detectWSDLVersion([]byte(tt.wsdl))
+			got, err := DetectWSDLVersion([]byte(tt.wsdl))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("detectWSDLVersion() error = %v, wantErr %v", err, tt.wantErr)
 				return

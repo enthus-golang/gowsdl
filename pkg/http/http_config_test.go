@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package gowsdl
+package http
 
 import (
 	"crypto/tls"
@@ -67,15 +67,3 @@ func TestHTTPClientConfigBuild(t *testing.T) {
 	}
 }
 
-func TestNewGoWSDLWithConfig(t *testing.T) {
-	config := DefaultHTTPClientConfig().WithTimeout(10 * time.Second)
-
-	gowsdl, err := NewGoWSDLWithConfig("fixtures/test.wsdl", "test", config, true)
-	if err != nil {
-		t.Fatalf("Failed to create GoWSDL: %v", err)
-	}
-
-	if gowsdl.httpConfig.Timeout != 10*time.Second {
-		t.Errorf("Expected HTTP config timeout 10s, got %v", gowsdl.httpConfig.Timeout)
-	}
-}

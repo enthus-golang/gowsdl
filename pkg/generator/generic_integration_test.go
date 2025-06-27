@@ -5,7 +5,7 @@
 //go:build integration
 // +build integration
 
-package gowsdl
+package generator
 
 import (
 	"context"

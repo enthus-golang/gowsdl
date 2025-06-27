@@ -2,23 +2,25 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package gowsdl
+package core
 
 import (
 	"errors"
 	"fmt"
 	"testing"
+
+	"github.com/hooklift/gowsdl/pkg/types"
 )
 
 func TestWSDLError(t *testing.T) {
 	tests := []struct {
 		name     string
-		err      *WSDLError
+		err      *types.WSDLError
 		expected string
 	}{
 		{
 			name: "with path",
-			err: &WSDLError{
+			err: &types.WSDLError{
 				Op:   "parse",
 				Path: "/path/to/file.wsdl",
 				Err:  errors.New("invalid XML"),
@@ -27,7 +29,7 @@ func TestWSDLError(t *testing.T) {
 		},
 		{
 			name: "without path",
-			err: &WSDLError{
+			err: &types.WSDLError{
 				Op:  "generate",
 				Err: errors.New("template error"),
 			},
@@ -46,7 +48,7 @@ func TestWSDLError(t *testing.T) {
 
 func TestWSDLErrorUnwrap(t *testing.T) {
 	baseErr := errors.New("base error")
-	wsdlErr := &WSDLError{
+	wsdlErr := &types.WSDLError{
 		Op:   "test",
 		Path: "test.wsdl",
 		Err:  baseErr,
@@ -65,12 +67,12 @@ func TestWSDLErrorUnwrap(t *testing.T) {
 func TestSchemaError(t *testing.T) {
 	tests := []struct {
 		name     string
-		err      *SchemaError
+		err      *types.SchemaError
 		expected string
 	}{
 		{
 			name: "with schema name",
-			err: &SchemaError{
+			err: &types.SchemaError{
 				Op:     "validate",
 				Schema: "http://example.com/schema.xsd",
 				Err:    errors.New("invalid type"),
@@ -79,7 +81,7 @@ func TestSchemaError(t *testing.T) {
 		},
 		{
 			name: "without schema name",
-			err: &SchemaError{
+			err: &types.SchemaError{
 				Op:  "parse",
 				Err: errors.New("syntax error"),
 			},
@@ -98,7 +100,7 @@ func TestSchemaError(t *testing.T) {
 
 func TestSchemaErrorUnwrap(t *testing.T) {
 	baseErr := errors.New("base error")
-	schemaErr := &SchemaError{
+	schemaErr := &types.SchemaError{
 		Op:     "test",
 		Schema: "test.xsd",
 		Err:    baseErr,
@@ -118,7 +120,7 @@ func TestSchemaErrorUnwrap(t *testing.T) {
 
 func TestErrorsAs(t *testing.T) {
 	// Test WSDL error chain
-	wsdlErr := &WSDLError{
+	wsdlErr := &types.WSDLError{
 		Op:   "download",
 		Path: "http://example.com/service.wsdl",
 		Err:  fmt.Errorf("network error"),
@@ -126,7 +128,7 @@ func TestErrorsAs(t *testing.T) {
 
 	wrappedErr := fmt.Errorf("failed to process WSDL: %w", wsdlErr)
 
-	var targetWSDLErr *WSDLError
+	var targetWSDLErr *types.WSDLError
 	if !errors.As(wrappedErr, &targetWSDLErr) {
 		t.Error("errors.As failed to extract WSDLError from chain")
 	}
@@ -136,7 +138,7 @@ func TestErrorsAs(t *testing.T) {
 	}
 
 	// Test Schema error chain
-	schemaErr := &SchemaError{
+	schemaErr := &types.SchemaError{
 		Op:     "resolve",
 		Schema: "types.xsd",
 		Err:    fmt.Errorf("file not found"),
@@ -144,7 +146,7 @@ func TestErrorsAs(t *testing.T) {
 
 	wrappedSchemaErr := fmt.Errorf("schema processing failed: %w", schemaErr)
 
-	var targetSchemaErr *SchemaError
+	var targetSchemaErr *types.SchemaError
 	if !errors.As(wrappedSchemaErr, &targetSchemaErr) {
 		t.Error("errors.As failed to extract SchemaError from chain")
 	}
@@ -155,8 +157,6 @@ func TestErrorsAs(t *testing.T) {
 }
 
 func TestMultipleErrorsInStartWithContext(t *testing.T) {
-	// This test verifies that multiple errors in goroutines are properly collected
-	// The actual test would require mocking or a test WSDL that triggers errors
-	// For now, this is a placeholder showing the expected behavior
-	t.Skip("Integration test for StartWithContext error aggregation")
+	t.Log("Integration test for StartWithContext error aggregation")
+	t.Skip("TODO: Implement this test after GoWSDL is properly refactored")
 }

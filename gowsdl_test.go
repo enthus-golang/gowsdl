@@ -6,6 +6,7 @@ package gowsdl
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"go/ast"
@@ -19,15 +20,17 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/hooklift/gowsdl/pkg/generator"
 )
 
 func TestElementGenerationDoesntCommentOutStructProperty(t *testing.T) {
-	g, err := NewGoWSDL("fixtures/test.wsdl", "myservice", false, true)
+	g, err := generator.New("fixtures/test.wsdl", generator.WithPackage("myservice"), generator.WithExportAllTypes(true))
 	if err != nil {
 		t.Error(err)
 	}
 
-	resp, err := g.Start()
+	resp, err := g.Generate(context.Background())
 	if err != nil {
 		t.Error(err)
 	}
@@ -39,12 +42,12 @@ func TestElementGenerationDoesntCommentOutStructProperty(t *testing.T) {
 }
 
 func TestComplexTypeWithInlineSimpleType(t *testing.T) {
-	g, err := NewGoWSDL("fixtures/test.wsdl", "myservice", false, true)
+	g, err := generator.New("fixtures/test.wsdl", generator.WithPackage("myservice"), generator.WithExportAllTypes(true))
 	if err != nil {
 		t.Error(err)
 	}
 
-	resp, err := g.Start()
+	resp, err := g.Generate(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,12 +67,12 @@ func TestComplexTypeWithInlineSimpleType(t *testing.T) {
 }
 
 func TestAttributeRef(t *testing.T) {
-	g, err := NewGoWSDL("fixtures/test.wsdl", "myservice", false, true)
+	g, err := generator.New("fixtures/test.wsdl", generator.WithPackage("myservice"), generator.WithExportAllTypes(true))
 	if err != nil {
 		t.Error(err)
 	}
 
-	resp, err := g.Start()
+	resp, err := g.Generate(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,12 +99,12 @@ func TestAttributeRef(t *testing.T) {
 }
 
 func TestElementWithLocalSimpleType(t *testing.T) {
-	g, err := NewGoWSDL("fixtures/test.wsdl", "myservice", false, true)
+	g, err := generator.New("fixtures/test.wsdl", generator.WithPackage("myservice"), generator.WithExportAllTypes(true))
 	if err != nil {
 		t.Error(err)
 	}
 
-	resp, err := g.Start()
+	resp, err := g.Generate(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,12 +150,12 @@ func TestElementWithLocalSimpleType(t *testing.T) {
 }
 
 func TestDateTimeType(t *testing.T) {
-	g, err := NewGoWSDL("fixtures/test.wsdl", "myservice", false, true)
+	g, err := generator.New("fixtures/test.wsdl", generator.WithPackage("myservice"), generator.WithExportAllTypes(true))
 	if err != nil {
 		t.Error(err)
 	}
 
-	resp, err := g.Start()
+	resp, err := g.Generate(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,12 +211,12 @@ func TestVboxGeneratesWithoutSyntaxErrors(t *testing.T) {
 	}
 
 	for _, file := range files {
-		g, err := NewGoWSDL(file, "myservice", false, true)
+		g, err := generator.New(file, generator.WithPackage("myservice"), generator.WithExportAllTypes(true))
 		if err != nil {
 			t.Error(err)
 		}
 
-		resp, err := g.Start()
+		resp, err := g.Generate(context.Background())
 		if err != nil {
 			continue
 			//t.Error(err)
@@ -223,7 +226,7 @@ func TestVboxGeneratesWithoutSyntaxErrors(t *testing.T) {
 		data.Write(resp["header"])
 		data.Write(resp["types"])
 		data.Write(resp["operations"])
-		data.Write(resp["soap"])
+		// 'soap' is no longer a separate generated component
 
 		_, err = format.Source(data.Bytes())
 		if err != nil {
@@ -235,12 +238,12 @@ func TestVboxGeneratesWithoutSyntaxErrors(t *testing.T) {
 
 func TestEnumerationsGeneratedCorrectly(t *testing.T) {
 	enumStringTest := func(t *testing.T, fixtureWsdl string, varName string, typeName string, enumString string) {
-		g, err := NewGoWSDL("fixtures/"+fixtureWsdl, "myservice", false, true)
+		g, err := generator.New("fixtures/"+fixtureWsdl, generator.WithPackage("myservice"), generator.WithExportAllTypes(true))
 		if err != nil {
 			t.Error(err)
 		}
 
-		resp, err := g.Start()
+		resp, err := g.Generate(context.Background())
 		if err != nil {
 			t.Error(err)
 		}
@@ -248,7 +251,7 @@ func TestEnumerationsGeneratedCorrectly(t *testing.T) {
 		matches := re.FindStringSubmatch(string(resp["types"]))
 
 		if len(matches) != 2 {
-			t.Errorf("No match or too many matches found for %s", varName)
+			t.Errorf("No match or too many matches found for %s. Generated types:\n%s", varName, string(resp["types"]))
 		} else if matches[1] != enumString {
 			t.Errorf("%s got '%s' but expected '%s'", varName, matches[1], enumString)
 		}
@@ -260,12 +263,12 @@ func TestEnumerationsGeneratedCorrectly(t *testing.T) {
 }
 
 func TestComplexTypeGeneratedCorrectly(t *testing.T) {
-	g, err := NewGoWSDL("fixtures/workday-time-min.wsdl", "myservice", false, true)
+	g, err := generator.New("fixtures/workday-time-min.wsdl", generator.WithPackage("myservice"), generator.WithExportAllTypes(true))
 	if err != nil {
 		t.Error(err)
 	}
 
-	resp, err := g.Start()
+	resp, err := g.Generate(context.Background())
 	if err != nil {
 		t.Error(err)
 	}
@@ -288,12 +291,12 @@ func TestEPCISWSDL(t *testing.T) {
 	log.SetFlags(0)
 	log.SetOutput(os.Stdout)
 
-	g, err := NewGoWSDL("./fixtures/epcis/EPCglobal-epcis-query-1_2.wsdl", "myservice", true, true)
+	g, err := generator.New("./fixtures/epcis/EPCglobal-epcis-query-1_2.wsdl", generator.WithPackage("myservice"), generator.WithExportAllTypes(true))
 	if err != nil {
 		t.Error(err)
 	}
 
-	resp, err := g.Start()
+	resp, err := g.Generate(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +304,7 @@ func TestEPCISWSDL(t *testing.T) {
 	data.Write(resp["header"])
 	data.Write(resp["types"])
 	data.Write(resp["operations"])
-	data.Write(resp["soap"])
+	// 'soap' is no longer a separate generated component
 
 	// go fmt the generated code
 	source, err := format.Source(data.Bytes())
