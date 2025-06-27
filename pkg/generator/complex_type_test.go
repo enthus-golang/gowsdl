@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -14,7 +15,7 @@ func TestComplexTypeWithInlineSequence(t *testing.T) {
 	gen, err := New(wsdlFile, WithPackage("testpkg"))
 	require.NoError(t, err)
 	
-	code, err := gen.Generate(nil)
+	code, err := gen.Generate(context.TODO())
 	require.NoError(t, err)
 	
 	// Get the generated code - concatenate all files
@@ -55,7 +56,7 @@ func TestComplexTypeFromOriginalWSDL(t *testing.T) {
 	gen, err := New(wsdlFile, WithPackage("godemo"))
 	require.NoError(t, err)
 	
-	code, err := gen.Generate(nil)
+	code, err := gen.Generate(context.TODO())
 	require.NoError(t, err)
 	
 	// Find the generated file
