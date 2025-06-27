@@ -5,8 +5,9 @@
 [![Build Status](https://github.com/hooklift/gowsdl/workflows/Test/badge.svg)](https://github.com/hooklift/gowsdl/actions)
 [![codecov](https://codecov.io/gh/hooklift/gowsdl/branch/main/graph/badge.svg)](https://codecov.io/gh/hooklift/gowsdl)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hooklift/gowsdl)](https://goreportcard.com/report/github.com/hooklift/gowsdl)
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
 
-Generates Go code from a WSDL file.
+Generates idiomatic Go code from WSDL files with support for WSDL 1.1, WSDL 2.0, and modern Go features including generics.
 
 ### Requirements
 
@@ -45,7 +46,21 @@ Usage: gowsdl [options] myservice.wsdl
   -v    Shows gowsdl version
   -use-generics
         Generate code using Go generics (requires Go 1.18+ for generic features)
-  ```
+  -insecure-skip-verify
+        Skip TLS certificate verification when downloading WSDLs
+  -ca-cert string
+        Path to CA certificate file for TLS verification
+  -tls-cert string
+        Path to client certificate for mutual TLS
+  -tls-key string
+        Path to client key for mutual TLS
+  -proxy string
+        HTTP proxy URL
+  -timeout duration
+        HTTP client timeout (default 30s)
+  -server
+        Generate server-side code in addition to client code
+```
 
 ### Go Generics Support
 
@@ -155,3 +170,98 @@ This implementation addresses all the features requested in [issue #10](https://
 - ✅ **Better error messages** - Contextual errors with suggestions
 
 All features include comprehensive test coverage and maintain backward compatibility with existing WSDL 1.1 code.
+
+### Project Structure
+
+The project has been modularized for better maintainability and follows Go standard project layout:
+
+```
+gowsdl/
+├── cmd/gowsdl/        # Command-line interface
+│   └── main.go        # CLI entry point with extensive flag support
+├── pkg/               # Core library packages
+│   ├── core/          # Core utilities and error handling
+│   ├── generator/     # Code generation logic
+│   │   └── templates/ # Go templates for code generation
+│   ├── http/          # HTTP client with security features
+│   ├── parser/        # WSDL/XSD parsers (1.1 and 2.0)
+│   ├── soap/          # SOAP protocol implementation
+│   │   ├── auth/      # Authentication mechanisms
+│   │   ├── client/    # SOAP client implementation
+│   │   ├── encoding/  # SOAP encoding utilities
+│   │   └── types/     # SOAP type definitions
+│   ├── types/         # Type mapping and conversion
+│   └── utils/         # General utility functions
+├── fixtures/          # Test WSDL/XSD files
+├── example/           # Usage examples
+└── docs/              # Documentation
+```
+
+### Recent Improvements
+
+#### Security Enhancements
+- **Path traversal prevention** in file operations
+- **Input validation** for package names and file paths
+- **Configurable TLS settings** with custom CA certificates
+- **Client certificate support** for mutual TLS
+- **Secure defaults** for HTTPS connections
+
+#### Modern Go Features
+- **Context support** for cancellation and timeouts
+- **Wrapped errors** with contextual information
+- **Custom error types** for better error handling
+- **Go 1.21+ compatibility** with latest Go idioms
+
+#### HTTP Client Configuration
+- Configurable timeouts and retries
+- Rate limiting support
+- HTTP/HTTPS proxy support
+- Custom transport configuration
+- Connection pooling
+
+#### Testing and Quality
+- **80%+ code coverage** target
+- Unit tests throughout the codebase
+- Integration tests for end-to-end scenarios
+- Benchmark tests for performance monitoring
+- GitHub Actions CI/CD pipeline
+
+### Building and Testing
+
+```bash
+# Run all tests
+make test
+
+# Run tests with coverage report
+make test-coverage
+
+# Run integration tests
+make test-integration
+
+# Run benchmarks
+make test-benchmarks
+
+# Run linter
+make lint
+
+# Update dependencies
+make update-deps
+```
+
+### Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+Please ensure:
+- All tests pass (`make test`)
+- Code coverage remains above 80% (`make test-coverage`)
+- Linter passes (`make lint`)
+- New features include appropriate tests
+
+### License
+
+This project is licensed under the Mozilla Public License 2.0 - see the [LICENSE](LICENSE) file for details.
