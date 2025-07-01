@@ -16,7 +16,11 @@ import (
 
 func TestGeneratorOptions(t *testing.T) {
 	tempFile := createTempWSDLFile(t)
-	defer os.Remove(tempFile)
+	defer func() {
+		if err := os.Remove(tempFile); err != nil {
+			t.Logf("Failed to remove temp file: %v", err)
+		}
+	}()
 
 	tests := []struct {
 		name   string
@@ -192,7 +196,11 @@ func TestUtilityFunctions(t *testing.T) {
 
 func TestGeneratorHelperMethods(t *testing.T) {
 	tempFile := createTempWSDLFile(t)
-	defer os.Remove(tempFile)
+	defer func() {
+		if err := os.Remove(tempFile); err != nil {
+			t.Logf("Failed to remove temp file: %v", err)
+		}
+	}()
 
 	g, err := New(tempFile, WithPackage("test"))
 	require.NoError(t, err)
@@ -229,7 +237,11 @@ func TestGeneratorHelperMethods(t *testing.T) {
 func TestGeneratorWithDifferentVersions(t *testing.T) {
 	t.Run("WSDL_1.1", func(t *testing.T) {
 		tempFile := createTempWSDLFile(t)
-		defer os.Remove(tempFile)
+		defer func() {
+			if err := os.Remove(tempFile); err != nil {
+				t.Logf("Failed to remove temp file: %v", err)
+			}
+		}()
 
 		g, err := New(tempFile, WithPackage("test"), WithServerGeneration(true))
 		require.NoError(t, err)
@@ -295,7 +307,11 @@ func TestGeneratorWithDifferentVersions(t *testing.T) {
 
 		tmpFile, err := os.CreateTemp("", "test-wsdl2-*.wsdl")
 		require.NoError(t, err)
-		defer os.Remove(tmpFile.Name())
+		defer func() {
+			if err := os.Remove(tmpFile.Name()); err != nil {
+				t.Logf("Failed to remove temp file: %v", err)
+			}
+		}()
 
 		_, err = tmpFile.WriteString(wsdl2Content)
 		require.NoError(t, err)

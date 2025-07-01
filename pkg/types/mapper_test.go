@@ -218,9 +218,8 @@ func TestTypeMapperEdgeCases(t *testing.T) {
 	})
 
 	t.Run("already_pointer_type", func(t *testing.T) {
-		// This tests the internal logic but since unknown types
-		// don't get prefixed with *, this will be a custom type
+		// The function checks if the type already has a * prefix to avoid double pointers
 		result := tm.MapXSDTypeToGoType("*CustomType", true)
-		assert.Equal(t, "**CustomType", result) // Gets another * added
+		assert.Equal(t, "*CustomType", result) // Doesn't add another * if already present
 	})
 }

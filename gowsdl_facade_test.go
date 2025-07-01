@@ -44,7 +44,11 @@ func TestWithOptions(t *testing.T) {
 
 	// Create a temporary WSDL file for testing
 	tempFile := createTempWSDLFile(t)
-	defer os.Remove(tempFile)
+	defer func() {
+		if err := os.Remove(tempFile); err != nil {
+			t.Logf("Failed to remove temp file: %v", err)
+		}
+	}()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -83,7 +87,11 @@ func TestNewGoWSDL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.name == "valid_wsdl_file" {
-				defer os.Remove(tt.file)
+				defer func() {
+					if err := os.Remove(tt.file); err != nil {
+						t.Logf("Failed to remove temp file: %v", err)
+					}
+				}()
 			}
 
 			gowsdl, err := NewGoWSDL(tt.file, tt.opts...)
@@ -101,7 +109,11 @@ func TestNewGoWSDL(t *testing.T) {
 
 func TestNewGoWSDLWithConfig(t *testing.T) {
 	tempFile := createTempWSDLFile(t)
-	defer os.Remove(tempFile)
+	defer func() {
+		if err := os.Remove(tempFile); err != nil {
+			t.Logf("Failed to remove temp file: %v", err)
+		}
+	}()
 
 	httpConfig := &HTTPClientConfig{
 		Timeout: 30,
@@ -115,7 +127,11 @@ func TestNewGoWSDLWithConfig(t *testing.T) {
 
 func TestNewGoWSDLWithOptions(t *testing.T) {
 	tempFile := createTempWSDLFile(t)
-	defer os.Remove(tempFile)
+	defer func() {
+		if err := os.Remove(tempFile); err != nil {
+			t.Logf("Failed to remove temp file: %v", err)
+		}
+	}()
 
 	httpConfig := &HTTPClientConfig{
 		Timeout: 30,
@@ -147,7 +163,11 @@ func TestNewGoWSDLWithOptions(t *testing.T) {
 
 func TestGoWSDLStart(t *testing.T) {
 	tempFile := createTempWSDLFile(t)
-	defer os.Remove(tempFile)
+	defer func() {
+		if err := os.Remove(tempFile); err != nil {
+			t.Logf("Failed to remove temp file: %v", err)
+		}
+	}()
 
 	gowsdl, err := NewGoWSDL(tempFile, WithPackage("test"))
 	require.NoError(t, err)
@@ -162,7 +182,11 @@ func TestGoWSDLStart(t *testing.T) {
 
 func TestGoWSDLStartWithContext(t *testing.T) {
 	tempFile := createTempWSDLFile(t)
-	defer os.Remove(tempFile)
+	defer func() {
+		if err := os.Remove(tempFile); err != nil {
+			t.Logf("Failed to remove temp file: %v", err)
+		}
+	}()
 
 	gowsdl, err := NewGoWSDL(tempFile, WithPackage("test"))
 	require.NoError(t, err)
@@ -178,7 +202,11 @@ func TestGoWSDLStartWithContext(t *testing.T) {
 
 func TestGoWSDLWithServerGeneration(t *testing.T) {
 	tempFile := createTempWSDLFile(t)
-	defer os.Remove(tempFile)
+	defer func() {
+		if err := os.Remove(tempFile); err != nil {
+			t.Logf("Failed to remove temp file: %v", err)
+		}
+	}()
 
 	gowsdl, err := NewGoWSDL(tempFile, WithPackage("test"), WithServerGeneration(true))
 	require.NoError(t, err)
