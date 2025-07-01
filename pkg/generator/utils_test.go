@@ -218,8 +218,8 @@ func TestGeneratorHelperMethods(t *testing.T) {
 
 	t.Run("findSOAPAction", func(t *testing.T) {
 		action := g.findSOAPAction("TestOperation", "TestPortType")
-		// Currently returns empty string as it's not implemented
-		assert.Equal(t, "", action)
+		// Should return the SOAP action from the WSDL binding
+		assert.Equal(t, "testAction", action)
 	})
 
 	t.Run("findType", func(t *testing.T) {

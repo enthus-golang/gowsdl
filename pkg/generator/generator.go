@@ -611,7 +611,33 @@ func (g *Generator) findType(message string) string {
 }
 
 func (g *Generator) findSOAPAction(operation, portType string) string {
-	// TODO: Implement SOAP action finding logic
+	if g.wsdl == nil {
+		return ""
+	}
+
+	// Find the binding that references the port type
+	for _, binding := range g.wsdl.Binding {
+		// Check if this binding is for the port type we're looking for
+		bindingPortType := binding.Type
+		if idx := strings.LastIndex(bindingPortType, ":"); idx != -1 {
+			bindingPortType = bindingPortType[idx+1:]
+		}
+		
+		// Compare with the port type name (need to handle case sensitivity and variations)
+		// Handle cases like: TestPortType == TestPort, TestPortType == TestPortType, etc.
+		if strings.EqualFold(bindingPortType, portType) || 
+		   strings.EqualFold(bindingPortType, portType+"Type") || 
+		   strings.EqualFold(bindingPortType, portType+"PortType") || 
+		   strings.EqualFold(bindingPortType+"PortType", portType) {
+			// Find the operation in this binding
+			for _, op := range binding.Operations {
+				if op.Name == operation {
+					return op.SOAPOperation.SOAPAction
+				}
+			}
+		}
+	}
+	
 	return ""
 }
 
