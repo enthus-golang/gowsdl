@@ -20,7 +20,7 @@ const OperationsWSDL1Template = `
 			//   - {{.Name}}{{if .Doc}} {{.Doc}}{{end}}{{end}}
 			{{end}}
 			{{if .Doc}}{{comment .Doc}}{{end}}
-			{{.Name}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error)
+			{{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error)
 		{{end}}
 	}
 
@@ -39,7 +39,7 @@ const OperationsWSDL1Template = `
 		{{$responseType := findType .Output.Message | replaceReservedWords | makePublic}}
 		{{$soapAction := findSOAPAction .Name $portType}}
 
-		func (service *{{$portType | makePrivate}}) {{.Name}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error) {
+		func (service *{{$portType | makePrivate}}) {{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error) {
 			response := new({{$responseType}})
 			err := service.client.CallContext(ctx, "{{$soapAction}}", request, response)
 			if err != nil {

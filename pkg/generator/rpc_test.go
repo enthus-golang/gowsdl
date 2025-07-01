@@ -95,7 +95,7 @@ func TestRPCStyleWSDLGeneration(t *testing.T) {
 	assert.Contains(t, generatedCode, "Category string `xml:\"category\" json:\"category\"`")
 	
 	// Check that the operations use the generated types
-	assert.Contains(t, generatedCode, "search(ctx context.Context, request *SearchRequest) (*SearchResponse, error)")
+	assert.Contains(t, generatedCode, "Search(ctx context.Context, request *SearchRequest) (*SearchResponse, error)")
 	
 	// Ensure no undefined String_ type is referenced
 	assert.NotContains(t, generatedCode, "String_")
@@ -196,7 +196,7 @@ func TestDocumentStyleWSDLNotAffected(t *testing.T) {
 	// Check that document-style operations still work correctly
 	assert.Contains(t, generatedCode, "type GetUserRequest struct {")
 	assert.Contains(t, generatedCode, "UserId string")
-	assert.Contains(t, generatedCode, "getUser(ctx context.Context, request *GetUserRequest) (*GetUserResponse, error)")
+	assert.Contains(t, generatedCode, "GetUser(ctx context.Context, request *GetUserRequest) (*GetUserResponse, error)")
 	
 	// Document-style messages should not generate wrapper types
 	assert.NotContains(t, generatedCode, "type GetUserRequestMessage struct")
