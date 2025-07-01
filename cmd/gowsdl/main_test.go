@@ -292,7 +292,11 @@ func TestRunSuccessOutput(t *testing.T) {
 	// Create a temporary directory for test outputs
 	tmpDir, err := os.MkdirTemp("", "gowsdl-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Create a test WSDL file
 	wsdlContent := `<?xml version="1.0" encoding="UTF-8"?>
@@ -403,7 +407,11 @@ func TestInitLogging(t *testing.T) {
 func TestServerFilePathCalculation(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "gowsdl-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	tests := []struct {
 		name               string
