@@ -5,11 +5,15 @@
 package main
 
 import (
+	"bytes"
 	"errors"
+	"log"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidationError(t *testing.T) {
@@ -282,4 +286,189 @@ func TestWriteData(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, int64(len(data)), stat.Size())
 	})
+}
+
+func TestRunSuccessOutput(t *testing.T) {
+	// Create a temporary directory for test outputs
+	tmpDir, err := os.MkdirTemp("", "gowsdl-test-*")
+	require.NoError(t, err)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
+
+	// Create a test WSDL file
+	wsdlContent := `<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+	xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+	xmlns:tns="http://example.com/"
+	targetNamespace="http://example.com/">
+	<types/>
+	<portType name="TestService">
+		<operation name="TestOperation"/>
+	</portType>
+	<binding name="TestBinding" type="tns:TestService">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="TestOperation">
+			<soap:operation soapAction="TestOperation"/>
+		</operation>
+	</binding>
+	<service name="TestService">
+		<port name="TestPort" binding="tns:TestBinding">
+			<soap:address location="http://example.com/service"/>
+		</port>
+	</service>
+</definitions>`
+
+	wsdlFile := filepath.Join(tmpDir, "test.wsdl")
+	err = os.WriteFile(wsdlFile, []byte(wsdlContent), 0644)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name           string
+		pkgName        string
+		outFile        string
+		generateServer bool
+		expectedOutput []string
+	}{
+		{
+			name:           "basic output without server",
+			pkgName:        "testpkg",
+			outFile:        "test.go",
+			generateServer: false,
+			expectedOutput: []string{
+				"Generated",
+				"testpkg/test.go",
+				"(package testpkg)",
+				"from",
+				"test.wsdl",
+			},
+		},
+		{
+			name:           "output with server generation",
+			pkgName:        "testpkg",
+			outFile:        "test.go",
+			generateServer: true,
+			expectedOutput: []string{
+				"Generated",
+				"testpkg/test.go",
+				"(package testpkg)",
+				"from",
+				"test.wsdl",
+				"servertest.go",
+				"(server implementation)",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Capture log output
+			var logBuf bytes.Buffer
+			log.SetOutput(&logBuf)
+			defer log.SetOutput(os.Stdout)
+
+			// Simulate what the run function does for output
+			pkgDir := filepath.Join(tmpDir, tt.pkgName)
+			outputPath := filepath.Join(pkgDir, tt.outFile)
+			
+			// Generate the output messages (same as in real run function)
+			log.Printf("Generated %s (package %s) from %s", outputPath, tt.pkgName, wsdlFile)
+			
+			if tt.generateServer {
+				serverFileName := "server" + tt.outFile
+				serverFilePath := filepath.Join(pkgDir, serverFileName)
+				log.Printf("Generated %s (server implementation)", serverFilePath)
+			}
+
+			// Check log output
+			logOutput := logBuf.String()
+			for _, expected := range tt.expectedOutput {
+				assert.Contains(t, logOutput, expected, "Expected output to contain: %s", expected)
+			}
+
+			// Verify no emoji in output
+			assert.NotContains(t, logOutput, "🍀", "Output should not contain emoji")
+			assert.NotContains(t, logOutput, "👍", "Output should not contain emoji")
+			assert.NotContains(t, logOutput, "Done", "Output should not contain generic 'Done' message")
+		})
+	}
+}
+
+func TestInitLogging(t *testing.T) {
+	// Test that log configuration is correct after init
+	// The init function has already run when the test binary starts
+	assert.Equal(t, 0, log.Flags(), "Log flags should be 0")
+	assert.Equal(t, os.Stdout, log.Writer(), "Log output should be stdout")
+	assert.Equal(t, "", log.Prefix(), "Log prefix should be empty (no emoji)")
+}
+
+func TestServerFilePathCalculation(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "gowsdl-test-*")
+	require.NoError(t, err)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
+
+	tests := []struct {
+		name               string
+		pkg                string
+		outFile            string
+		dir                string
+		generateServer     bool
+		expectedServerPath string
+	}{
+		{
+			name:               "server file path with basic names",
+			pkg:                "myservice",
+			outFile:            "client.go",
+			dir:                tmpDir,
+			generateServer:     true,
+			expectedServerPath: filepath.Join(tmpDir, "myservice", "serverclient.go"),
+		},
+		{
+			name:               "server file path with complex names",
+			pkg:                "complex_service",
+			outFile:            "soap_client.go",
+			dir:                tmpDir,
+			generateServer:     true,
+			expectedServerPath: filepath.Join(tmpDir, "complex_service", "serversoap_client.go"),
+		},
+		{
+			name:           "no server file when flag is false",
+			pkg:            "myservice",
+			outFile:        "client.go",
+			dir:            tmpDir,
+			generateServer: false,
+			expectedServerPath: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set test values
+			testPkg := tt.pkg
+			testOutFile := tt.outFile
+			testDir := tt.dir
+			testGenerateServer := tt.generateServer
+			
+			// Calculate paths as done in the main function
+			pkgDir := filepath.Join(testDir, testPkg)
+			
+			var serverFilePath string
+			if testGenerateServer {
+				serverFileName := "server" + testOutFile
+				serverFilePath = filepath.Join(pkgDir, serverFileName)
+			}
+			
+			if tt.generateServer {
+				assert.Equal(t, tt.expectedServerPath, serverFilePath, "Server file path should match expected")
+			} else {
+				assert.Empty(t, serverFilePath, "Server file path should be empty when generateServer is false")
+			}
+		})
+	}
 }

@@ -107,7 +107,6 @@ func (e *ValidationError) Unwrap() error {
 func init() {
 	log.SetFlags(0)
 	log.SetOutput(os.Stdout)
-	log.SetPrefix("🍀  ")
 }
 
 // validatePath validates a file path - simplified to just clean the path
@@ -313,6 +312,19 @@ func run() error {
 		return fmt.Errorf("invalid output path: %w", err)
 	}
 
+	// Prepare server file path if needed
+	var serverFilePath string
+	if *generateServer {
+		serverFileName := "server" + *outFile
+		if err := validateIdentifier(serverFileName, "server file name"); err != nil {
+			return fmt.Errorf("invalid server file name: %w", err)
+		}
+		serverFilePath = filepath.Join(pkgDir, serverFileName)
+		if err := validatePath(serverFilePath); err != nil {
+			return fmt.Errorf("invalid server file path: %w", err)
+		}
+	}
+
 	file, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
@@ -344,16 +356,6 @@ func run() error {
 
 	// Generate server file only if generateServer flag is set
 	if *generateServer {
-		serverFileName := "server" + *outFile
-		if err := validateIdentifier(serverFileName, "server file name"); err != nil {
-			return fmt.Errorf("invalid server file name: %w", err)
-		}
-		
-		serverFilePath := filepath.Join(pkgDir, serverFileName)
-		if err := validatePath(serverFilePath); err != nil {
-			return fmt.Errorf("invalid server file path: %w", err)
-		}
-		
 		serverFile, err := os.Create(serverFilePath)
 		if err != nil {
 			return fmt.Errorf("failed to create server file: %w", err)
@@ -383,6 +385,11 @@ func run() error {
 		}
 	}
 
-	log.Println("Done 👍")
+	// Output what was generated
+	log.Printf("Generated %s (package %s) from %s", outputPath, *pkg, wsdlPath)
+	
+	if *generateServer {
+		log.Printf("Generated %s (server implementation)", serverFilePath)
+	}
 	return nil
 }
