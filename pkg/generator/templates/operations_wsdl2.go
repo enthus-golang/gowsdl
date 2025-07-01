@@ -34,8 +34,8 @@ const OperationsWSDL2Template = `
 			{{end}}
 			
 			{{if .Doc}}{{comment .Doc}}{{end}}
-			{{.Name}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error)
-			{{.Name}}Context(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error)
+			{{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error)
+			{{.Name | makePublic}}Context(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error)
 		{{end}}
 	}
 
@@ -60,7 +60,7 @@ const OperationsWSDL2Template = `
 			{{$responseType = findType .Output.Element | replaceReservedWords | makePublic}}
 		{{end}}
 
-		func (service *{{$interface | makePrivate}}) {{.Name}}Context(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error) {
+		func (service *{{$interface | makePrivate}}) {{.Name | makePublic}}Context(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error) {
 			response := new({{$responseType}})
 			err := service.client.CallContext(ctx, "", request, response)
 			if err != nil {
@@ -69,8 +69,8 @@ const OperationsWSDL2Template = `
 			return response, nil
 		}
 
-		func (service *{{$interface | makePrivate}}) {{.Name}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error) {
-			return service.{{.Name}}Context(ctx, request)
+		func (service *{{$interface | makePrivate}}) {{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error) {
+			return service.{{.Name | makePublic}}Context(ctx, request)
 		}
 	{{end}}
 {{end}}

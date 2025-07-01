@@ -283,6 +283,50 @@ const TypesTemplate = `
 		{{end}}
 	{{end}}
 
+	{{range .Choice}}
+		{{$memberName := .Name | replaceReservedWords | makePublic}}
+		{{if ne .Ref ""}}
+			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makePublic}}
+			{{$typeName := .Ref | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{end}}
+		{{else if .Type}}
+			{{$typeName := .Type | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{end}}
+		{{end}}
+	{{end}}
+
+	{{range .All}}
+		{{$memberName := .Name | replaceReservedWords | makePublic}}
+		{{if ne .Ref ""}}
+			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makePublic}}
+			{{$typeName := .Ref | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{end}}
+		{{else if .Type}}
+			{{$typeName := .Type | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{end}}
+		{{end}}
+	{{end}}
+
 	{{range .Attributes}}
 		
 		{{$name := .Name}}
@@ -410,6 +454,25 @@ const TypesTemplate = `
 				{{end}}
 			{{end}}
 		{{end}}
+	{{end}}
+{{end}}
+
+{{/* Generate wrapper types for RPC-style messages */}}
+{{range .Messages}}
+	{{if isRPCStyleMessage .}}
+		{{$type := replaceReservedWords .Name | makePublic}}
+		type {{$type}} struct {
+			{{range .Parts}}
+				{{$partName := .Name | replaceReservedWords | makePublic}}
+				{{if ne .Type ""}}
+					{{$partType := .Type | removeNamespacePrefix}}
+					{{$partName}} {{toGoType $partType false}} ` + "`" + `xml:"{{.Name}}" json:"{{.Name}}"` + "`" + `
+				{{else if ne .Element ""}}
+					{{$elementType := .Element | removeNamespacePrefix}}
+					{{$partName}} {{toGoType $elementType false}} ` + "`" + `xml:"{{.Name}}" json:"{{.Name}}"` + "`" + `
+				{{end}}
+			{{end}}
+		}
 	{{end}}
 {{end}}
 
