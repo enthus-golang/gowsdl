@@ -146,7 +146,9 @@ func initReservedWords() map[string]string {
 		"continue":    "continue_",
 		"for":         "for_",
 		"import":      "import_",
-		"return":      "return_",
+		// "return" is commonly used in RPC-style WSDLs for response parts
+		// Map to "result" for more idiomatic Go field names
+		"return":      "result",
 		"var":         "var_",
 		// Common standard library conflicts
 		"string":      "string_",

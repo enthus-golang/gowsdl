@@ -283,6 +283,50 @@ const TypesTemplate = `
 		{{end}}
 	{{end}}
 
+	{{range .Choice}}
+		{{$memberName := .Name | replaceReservedWords | makePublic}}
+		{{if ne .Ref ""}}
+			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makePublic}}
+			{{$typeName := .Ref | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{end}}
+		{{else if .Type}}
+			{{$typeName := .Type | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{end}}
+		{{end}}
+	{{end}}
+
+	{{range .All}}
+		{{$memberName := .Name | replaceReservedWords | makePublic}}
+		{{if ne .Ref ""}}
+			{{$memberName = .Ref | removeNamespacePrefix | replaceReservedWords | makePublic}}
+			{{$typeName := .Ref | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{end}}
+		{{else if .Type}}
+			{{$typeName := .Type | removeNamespacePrefix}}
+			{{$memberType := toGoType $typeName .Nillable}}
+			{{if eq .MaxOccurs "unbounded"}}
+				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{else}}
+				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{end}}
+		{{end}}
+	{{end}}
+
 	{{range .Attributes}}
 		
 		{{$name := .Name}}
