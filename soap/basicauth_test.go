@@ -91,7 +91,7 @@ func TestWithBasicAuth(t *testing.T) {
 		</TestResponse>
 	</soap:Body>
 </soap:Envelope>`
-					w.Write([]byte(responseXML))
+					_, _ = w.Write([]byte(responseXML))
 				}
 			}))
 			defer server.Close()
@@ -135,7 +135,7 @@ func TestBasicAuthOption(t *testing.T) {
 			
 			// Send minimal valid SOAP response
 			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-			w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 				<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
 					<soap:Body></soap:Body>
 				</soap:Envelope>`))
@@ -166,7 +166,7 @@ func TestBasicAuthIntegration(t *testing.T) {
 			authHeaders = append(authHeaders, r.Header.Get("Authorization"))
 			
 			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-			w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 				<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
 					<soap:Body></soap:Body>
 				</soap:Envelope>`))
@@ -202,7 +202,7 @@ func TestBasicAuthIntegration(t *testing.T) {
 			capturedHeaders["SOAPAction"] = r.Header.Get("SOAPAction")
 			
 			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-			w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 				<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
 					<soap:Body></soap:Body>
 				</soap:Envelope>`))
@@ -277,7 +277,7 @@ func TestBasicAuthWithSpecialCharacters(t *testing.T) {
 				capturedAuth = r.Header.Get("Authorization")
 				
 				w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-				w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+				_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 					<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
 						<soap:Body></soap:Body>
 					</soap:Envelope>`))
@@ -301,7 +301,7 @@ func TestBasicAuthErrorHandling(t *testing.T) {
 	t.Run("server returns 401", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("Unauthorized"))
+			_, _ = w.Write([]byte("Unauthorized"))
 		}))
 		defer server.Close()
 
@@ -324,7 +324,7 @@ func TestBasicAuthErrorHandling(t *testing.T) {
 			hasAuth = capturedAuth != ""
 			
 			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-			w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+			_, _ = w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
 				<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
 					<soap:Body></soap:Body>
 				</soap:Envelope>`))
