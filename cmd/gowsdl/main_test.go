@@ -6,7 +6,10 @@ package main
 
 import (
 	"errors"
+	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestValidationError(t *testing.T) {
@@ -167,4 +170,71 @@ func TestValidateIdentifier(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWriteData(t *testing.T) {
+	t.Run("successful write", func(t *testing.T) {
+		tmpFile, err := os.CreateTemp("", "test-write-*.tmp")
+		assert.NoError(t, err)
+		defer os.Remove(tmpFile.Name())
+		defer tmpFile.Close()
+
+		data := []byte("test data content")
+		err = writeData(tmpFile, data)
+		assert.NoError(t, err)
+
+		// Verify data was written correctly
+		tmpFile.Seek(0, 0)
+		readData := make([]byte, len(data))
+		n, err := tmpFile.Read(readData)
+		assert.NoError(t, err)
+		assert.Equal(t, len(data), n)
+		assert.Equal(t, data, readData)
+	})
+
+	t.Run("write to closed file", func(t *testing.T) {
+		tmpFile, err := os.CreateTemp("", "test-write-*.tmp")
+		assert.NoError(t, err)
+		defer os.Remove(tmpFile.Name())
+		
+		// Close the file before writing
+		tmpFile.Close()
+
+		data := []byte("test data")
+		err = writeData(tmpFile, data)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to write to file")
+	})
+
+	t.Run("write empty data", func(t *testing.T) {
+		tmpFile, err := os.CreateTemp("", "test-write-*.tmp")
+		assert.NoError(t, err)
+		defer os.Remove(tmpFile.Name())
+		defer tmpFile.Close()
+
+		data := []byte{}
+		err = writeData(tmpFile, data)
+		assert.NoError(t, err)
+	})
+
+	t.Run("write large data", func(t *testing.T) {
+		tmpFile, err := os.CreateTemp("", "test-write-*.tmp")
+		assert.NoError(t, err)
+		defer os.Remove(tmpFile.Name())
+		defer tmpFile.Close()
+
+		// Create a large data buffer (1MB)
+		data := make([]byte, 1024*1024)
+		for i := range data {
+			data[i] = byte(i % 256)
+		}
+
+		err = writeData(tmpFile, data)
+		assert.NoError(t, err)
+
+		// Verify file size
+		stat, err := tmpFile.Stat()
+		assert.NoError(t, err)
+		assert.Equal(t, int64(len(data)), stat.Size())
+	})
 }
