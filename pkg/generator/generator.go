@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -364,18 +365,70 @@ func (g *Generator) genOperations() ([]byte, error) {
 }
 
 func (g *Generator) genServer() ([]byte, error) {
-	// TODO: Implement server generation
-	return []byte{}, nil
+	funcMap := g.createFuncMap()
+	
+	// Choose template based on WSDL version
+	var tmplText string
+	var data interface{}
+	
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		tmplText = templates.ServerWSDL2Template
+		data = g.wsdl2.Interfaces
+	} else if g.wsdl != nil {
+		tmplText = templates.ServerTemplate
+		data = g.wsdl.PortTypes
+	} else {
+		return nil, errors.New("no WSDL data available")
+	}
+	
+	tmpl, err := template.New("server").Funcs(funcMap).Parse(tmplText)
+	if err != nil {
+		return nil, err
+	}
+	
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return nil, err
+	}
+	
+	return buf.Bytes(), nil
 }
 
 func (g *Generator) genServerHeader() ([]byte, error) {
-	// TODO: Implement server header generation
-	return []byte{}, nil
+	funcMap := g.createFuncMap()
+	tmpl, err := template.New("server_header").Funcs(funcMap).Parse(templates.ServerHeaderTemplate)
+	if err != nil {
+		return nil, err
+	}
+	
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, g.pkg); err != nil {
+		return nil, err
+	}
+	
+	return buf.Bytes(), nil
 }
 
 func (g *Generator) genServerWSDL() ([]byte, error) {
-	// TODO: Implement server WSDL generation
-	return []byte{}, nil
+	// Read the original WSDL file content
+	ctx := context.Background()
+	wsdlContent, err := g.fetchFile(ctx, g.loc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read WSDL file: %w", err)
+	}
+	
+	funcMap := g.createFuncMap()
+	tmpl, err := template.New("server_wsdl").Funcs(funcMap).Parse(templates.ServerWSDLTemplate)
+	if err != nil {
+		return nil, err
+	}
+	
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, string(wsdlContent)); err != nil {
+		return nil, err
+	}
+	
+	return buf.Bytes(), nil
 }
 
 // createFuncMap creates the template function map

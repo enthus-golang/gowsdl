@@ -31,8 +31,9 @@ func (tm *TypeMapper) MapXSDTypeToGoType(xsdType string, nillable bool) string {
 	
 	goType, ok := tm.xsdToGoTypes[xsdType]
 	if !ok {
-		// Default to string for unknown types
-		goType = "string"
+		// For unknown types, assume they are user-defined complex types
+		// and use the type name as-is (without namespace prefix)
+		goType = xsdType
 	}
 	
 	// Make pointer if nillable
