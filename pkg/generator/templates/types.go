@@ -413,6 +413,25 @@ const TypesTemplate = `
 	{{end}}
 {{end}}
 
+{{/* Generate wrapper types for RPC-style messages */}}
+{{range .Messages}}
+	{{if isRPCStyleMessage .}}
+		{{$type := replaceReservedWords .Name | makePublic}}
+		type {{$type}} struct {
+			{{range .Parts}}
+				{{$partName := .Name | replaceReservedWords | makePublic}}
+				{{if ne .Type ""}}
+					{{$partType := .Type | removeNamespacePrefix}}
+					{{$partName}} {{toGoType $partType false}} ` + "`" + `xml:"{{.Name}}" json:"{{.Name}}"` + "`" + `
+				{{else if ne .Element ""}}
+					{{$elementType := .Element | removeNamespacePrefix}}
+					{{$partName}} {{toGoType $elementType false}} ` + "`" + `xml:"{{.Name}}" json:"{{.Name}}"` + "`" + `
+				{{end}}
+			{{end}}
+		}
+	{{end}}
+{{end}}
+
 {{define "Elements"}}
 	{{range .}}
 		{{if ne .Ref ""}}

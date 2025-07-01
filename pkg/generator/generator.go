@@ -316,6 +316,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 		ComplexTypes    []*parser.XSDComplexType
 		Elements        []*parser.XSDElement
 		Schemas         []*parser.XSDSchema
+		Messages        []*parser.WSDLMessage
 		TargetNamespace string
 	}{}
 	
@@ -325,6 +326,8 @@ func (g *Generator) genTypes() ([]byte, error) {
 		schemas = g.wsdl2.Types.Schemas
 	} else if g.wsdl != nil {
 		schemas = g.wsdl.Types.Schemas
+		// Add RPC-style messages for WSDL 1.1
+		data.Messages = g.wsdl.Messages
 	}
 	
 	data.Schemas = schemas
@@ -466,6 +469,7 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"goString":                goString,
 		"sanitizeEnumValue":       sanitizeEnumValue,
 		"getTargetNamespace":      g.getTargetNamespace,
+		"isRPCStyleMessage":       g.isRPCStyleMessage,
 	}
 }
 
@@ -544,6 +548,26 @@ func sanitizeEnumValue(s string) string {
 	return s
 }
 
+// isRPCStyleMessage determines if a message requires a wrapper type
+// This is true for messages with multiple parts or single primitive-typed parts
+func (g *Generator) isRPCStyleMessage(msg *parser.WSDLMessage) bool {
+	if msg == nil {
+		return false
+	}
+	
+	// Multiple parts always require a wrapper
+	if len(msg.Parts) > 1 {
+		return true
+	}
+	
+	// Single part with primitive type (no element reference) requires a wrapper
+	if len(msg.Parts) == 1 && msg.Parts[0].Element == "" && msg.Parts[0].Type != "" {
+		return true
+	}
+	
+	return false
+}
+
 // findType finds the actual type name from a message reference
 func (g *Generator) findType(message string) string {
 	// Remove namespace prefix from message name
@@ -554,6 +578,13 @@ func (g *Generator) findType(message string) string {
 	if g.wsdl != nil {
 		for _, msg := range g.wsdl.Messages {
 			if msg.Name == message {
+				// Check if this is an RPC-style operation
+				if g.isRPCStyleMessage(msg) {
+					// For RPC-style operations, use the message name as the type
+					// This will generate a wrapper type in the types template
+					return msg.Name
+				}
+				
 				if len(msg.Parts) > 0 {
 					// Get the first part's element or type
 					part := msg.Parts[0]
@@ -561,6 +592,7 @@ func (g *Generator) findType(message string) string {
 						return removeNamespacePrefix(part.Element)
 					}
 					if part.Type != "" {
+						// For document-style with a complex type reference
 						return removeNamespacePrefix(part.Type)
 					}
 				}
