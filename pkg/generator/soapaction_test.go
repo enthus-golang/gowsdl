@@ -193,6 +193,28 @@ func TestFindSOAPAction(t *testing.T) {
 			},
 			expected: "",
 		},
+		{
+			name:      "handles complex suffix variations",
+			operation: "TestOp",
+			portType:  "MyService",
+			wsdl: &parser.WSDL{
+				Binding: []*parser.WSDLBinding{
+					{
+						Name: "MyServiceBinding",
+						Type: "tns:MyServicePortType",
+						Operations: []*parser.WSDLOperation{
+							{
+								Name: "TestOp",
+								SOAPOperation: parser.WSDLSOAPOperation{
+									SOAPAction: "http://example.com/MyServiceTestOp",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "http://example.com/MyServiceTestOp",
+		},
 	}
 
 	for _, tt := range tests {

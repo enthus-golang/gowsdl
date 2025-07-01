@@ -623,12 +623,18 @@ func (g *Generator) findSOAPAction(operation, portType string) string {
 			bindingPortType = bindingPortType[idx+1:]
 		}
 		
-		// Compare with the port type name (need to handle case sensitivity and variations)
-		// Handle cases like: TestPortType == TestPort, TestPortType == TestPortType, etc.
-		if strings.EqualFold(bindingPortType, portType) || 
-		   strings.EqualFold(bindingPortType, portType+"Type") || 
-		   strings.EqualFold(bindingPortType, portType+"PortType") || 
-		   strings.EqualFold(bindingPortType+"PortType", portType) {
+		// Normalize names by removing common suffixes to provide a more robust comparison
+		normalizedBindingPortType := bindingPortType
+		normalizedBindingPortType = strings.TrimSuffix(normalizedBindingPortType, "PortType")
+		normalizedBindingPortType = strings.TrimSuffix(normalizedBindingPortType, "Port")
+		normalizedBindingPortType = strings.TrimSuffix(normalizedBindingPortType, "Type")
+		
+		normalizedPortType := portType
+		normalizedPortType = strings.TrimSuffix(normalizedPortType, "PortType")
+		normalizedPortType = strings.TrimSuffix(normalizedPortType, "Port")
+		normalizedPortType = strings.TrimSuffix(normalizedPortType, "Type")
+		
+		if strings.EqualFold(normalizedBindingPortType, normalizedPortType) {
 			// Find the operation in this binding
 			for _, op := range binding.Operations {
 				if op.Name == operation {
