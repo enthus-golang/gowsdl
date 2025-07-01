@@ -136,3 +136,8 @@ jobs:
           name: master.breakdown
           path: master.breakdown
           if-no-files-found: error
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}

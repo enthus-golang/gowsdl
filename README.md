@@ -2,8 +2,8 @@
 
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/hooklift/gowsdl?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![GoDoc](https://godoc.org/github.com/enthus-golang/gowsdl?status.svg)](https://godoc.org/github.com/enthus-golang/gowsdl)
-[![Build Status](https://github.com/enthus-golang/gowsdl/workflows/Test/badge.svg)](https://github.com/enthus-golang/gowsdl/actions)
-[![codecov](https://codecov.io/gh/hooklift/gowsdl/branch/main/graph/badge.svg)](https://codecov.io/gh/hooklift/gowsdl)
+[![Build Status](https://github.com/enthus-golang/gowsdl/workflows/Go/badge.svg)](https://github.com/enthus-golang/gowsdl/actions)
+[![codecov](https://codecov.io/gh/enthus-golang/gowsdl/branch/main/graph/badge.svg)](https://codecov.io/gh/enthus-golang/gowsdl)
 [![Go Report Card](https://goreportcard.com/badge/github.com/enthus-golang/gowsdl)](https://goreportcard.com/report/github.com/enthus-golang/gowsdl)
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
 
