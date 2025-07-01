@@ -33,6 +33,7 @@ type Generator struct {
 	wsdlVersion      string // "1.1" or "2.0"
 	httpConfig       http.HTTPConfig
 	useGenerics      bool
+	generateServer   bool
 	namespaceManager *core.NamespaceManager
 	typeMapper       *types.TypeMapper
 }
@@ -76,6 +77,14 @@ func WithExportAllTypes(export bool) Option {
 		} else {
 			g.makePublicFn = func(id string) string { return id }
 		}
+		return nil
+	}
+}
+
+// WithServerGeneration controls whether to generate server code
+func WithServerGeneration(generate bool) Option {
+	return func(g *Generator) error {
+		g.generateServer = generate
 		return nil
 	}
 }
@@ -130,10 +139,16 @@ func (g *Generator) generateCode() (map[string][]byte, error) {
 	
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	errChan := make(chan error, 6)
+	
+	// Calculate number of goroutines based on generateServer flag
+	numGoroutines := 3 // header, types, operations
+	if g.generateServer {
+		numGoroutines = 6 // add server, server_header, server_wsdl
+	}
+	errChan := make(chan error, numGoroutines)
 	
 	// Generate all components in parallel
-	wg.Add(6)
+	wg.Add(numGoroutines)
 	
 	go func() {
 		defer wg.Done()
@@ -168,38 +183,41 @@ func (g *Generator) generateCode() (map[string][]byte, error) {
 		}
 	}()
 	
-	go func() {
-		defer wg.Done()
-		if data, err := g.genServer(); err != nil {
-			errChan <- err
-		} else {
-			mu.Lock()
-			gocode["server"] = data
-			mu.Unlock()
-		}
-	}()
-	
-	go func() {
-		defer wg.Done()
-		if data, err := g.genServerHeader(); err != nil {
-			errChan <- err
-		} else {
-			mu.Lock()
-			gocode["server_header"] = data
-			mu.Unlock()
-		}
-	}()
-	
-	go func() {
-		defer wg.Done()
-		if data, err := g.genServerWSDL(); err != nil {
-			errChan <- err
-		} else {
-			mu.Lock()
-			gocode["server_wsdl"] = data
-			mu.Unlock()
-		}
-	}()
+	// Only generate server files if generateServer is enabled
+	if g.generateServer {
+		go func() {
+			defer wg.Done()
+			if data, err := g.genServer(); err != nil {
+				errChan <- err
+			} else {
+				mu.Lock()
+				gocode["server"] = data
+				mu.Unlock()
+			}
+		}()
+		
+		go func() {
+			defer wg.Done()
+			if data, err := g.genServerHeader(); err != nil {
+				errChan <- err
+			} else {
+				mu.Lock()
+				gocode["server_header"] = data
+				mu.Unlock()
+			}
+		}()
+		
+		go func() {
+			defer wg.Done()
+			if data, err := g.genServerWSDL(); err != nil {
+				errChan <- err
+			} else {
+				mu.Lock()
+				gocode["server_wsdl"] = data
+				mu.Unlock()
+			}
+		}()
+	}
 	
 	wg.Wait()
 	close(errChan)

@@ -117,7 +117,7 @@ func TestWSDL2Integration(t *testing.T) {
 
 	t.Run("WSDL2CodeGeneration", func(t *testing.T) {
 		// Test full code generation with WSDL 2.0
-		g, err := New(tempFile.Name(), WithPackage("stockquote"))
+		g, err := New(tempFile.Name(), WithPackage("stockquote"), WithServerGeneration(true))
 		require.NoError(t, err)
 
 		gocode, err := g.Generate(context.Background())
