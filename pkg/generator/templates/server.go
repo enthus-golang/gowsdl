@@ -55,7 +55,7 @@ type SOAPEnvelopeResponse struct { ` + `
 	Body SOAPBodyResponse
 }
 
-func NewSOAPEnvelopResponse() *SOAPEnvelopeResponse {
+func NewSOAPEnvelopeResponse() *SOAPEnvelopeResponse {
 	return &SOAPEnvelopeResponse{
 		PrefixSoap: "http://schemas.xmlsoap.org/soap/envelope/",
 		PrefixXsd:  "http://www.w3.org/2001/XMLSchema",
@@ -109,7 +109,7 @@ func (service *SOAPEnvelopeRequest) call(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	resp := NewSOAPEnvelopResponse()
+	resp := NewSOAPEnvelopeResponse()
 	defer func() {
 		if r := recover(); r != nil {
 			resp.Body.Fault = &Fault{}
@@ -122,8 +122,15 @@ func (service *SOAPEnvelopeRequest) call(w http.ResponseWriter, r *http.Request)
 	}()
 
 	header := r.Header.Get("Content-Type")
-	if strings.Index(header, "application/soap+xml") >= 0 {
-		panic("Could not find an appropriate Transport Binding to invoke.")
+	if !strings.Contains(header, "text/xml") {
+		resp.Body.Fault = &Fault{
+			Space:  "http://schemas.xmlsoap.org/soap/envelope/",
+			Code:   "soap:Client",
+			String: "Invalid content type for SOAP 1.1; expected 'text/xml'",
+			Detail: "Invalid content type for SOAP 1.1; expected 'text/xml'",
+		}
+		xml.NewEncoder(w).Encode(resp)
+		return
 	}
 
 	err := xml.NewDecoder(r.Body).Decode(service)
@@ -134,13 +141,7 @@ func (service *SOAPEnvelopeRequest) call(w http.ResponseWriter, r *http.Request)
 	for i := 0; i < n; i++ {
 		field = val.Field(i)
 		name = val.Type().Field(i).Name
-		if field.Kind() != reflect.Ptr {
-			continue
-		}
-		if field.IsNil() {
-			continue
-		}
-		if field.IsValid() {
+		if field.Kind() == reflect.Ptr && !field.IsNil() {
 			find = true
 			break
 		}
@@ -199,7 +200,7 @@ type SOAPEnvelopeResponse struct { ` + `
 	Body SOAPBodyResponse
 }
 
-func NewSOAPEnvelopResponse() *SOAPEnvelopeResponse {
+func NewSOAPEnvelopeResponse() *SOAPEnvelopeResponse {
 	return &SOAPEnvelopeResponse{
 		PrefixSoap: "http://schemas.xmlsoap.org/soap/envelope/",
 		PrefixXsd:  "http://www.w3.org/2001/XMLSchema",
@@ -261,7 +262,7 @@ func (service *SOAPEnvelopeRequest) call(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	resp := NewSOAPEnvelopResponse()
+	resp := NewSOAPEnvelopeResponse()
 	defer func() {
 		if r := recover(); r != nil {
 			resp.Body.Fault = &Fault{}

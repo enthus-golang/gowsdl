@@ -131,10 +131,10 @@ func (g *Generator) Generate(ctx context.Context) (map[string][]byte, error) {
 		parser.NewTraverser(schema, schemas).Traverse()
 	}
 
-	return g.generateCode()
+	return g.generateCode(ctx)
 }
 
-func (g *Generator) generateCode() (map[string][]byte, error) {
+func (g *Generator) generateCode(ctx context.Context) (map[string][]byte, error) {
 	gocode := make(map[string][]byte)
 	
 	var wg sync.WaitGroup
@@ -209,7 +209,7 @@ func (g *Generator) generateCode() (map[string][]byte, error) {
 		
 		go func() {
 			defer wg.Done()
-			if data, err := g.genServerWSDL(); err != nil {
+			if data, err := g.genServerWSDL(ctx); err != nil {
 				errChan <- err
 			} else {
 				mu.Lock()
@@ -427,9 +427,8 @@ func (g *Generator) genServerHeader() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (g *Generator) genServerWSDL() ([]byte, error) {
+func (g *Generator) genServerWSDL(ctx context.Context) ([]byte, error) {
 	// Read the original WSDL file content
-	ctx := context.Background()
 	wsdlContent, err := g.fetchFile(ctx, g.loc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read WSDL file: %w", err)
