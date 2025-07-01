@@ -160,6 +160,9 @@ func TestEscapeReservedWord(t *testing.T) {
 		{"int", "int_"},
 		{"interface", "interface_"},
 		
+		// Special case: "return" maps to "result" for RPC-style WSDLs
+		{"return", "result"},
+		
 		// Non-reserved words stay the same
 		{"hello", "hello"},
 		{"CustomType", "CustomType"},
