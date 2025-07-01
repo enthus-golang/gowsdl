@@ -107,7 +107,6 @@ func (e *ValidationError) Unwrap() error {
 func init() {
 	log.SetFlags(0)
 	log.SetOutput(os.Stdout)
-	log.SetPrefix("🍀  ")
 }
 
 // validatePath validates a file path - simplified to just clean the path
@@ -383,6 +382,13 @@ func run() error {
 		}
 	}
 
-	log.Println("Done 👍")
+	// Output what was generated
+	log.Printf("Generated %s (package %s) from %s", outputPath, *pkg, wsdlPath)
+	
+	if *generateServer {
+		serverFileName := "server" + *outFile
+		serverFilePath := filepath.Join(pkgDir, serverFileName)
+		log.Printf("Generated %s (server implementation)", serverFilePath)
+	}
 	return nil
 }
