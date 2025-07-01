@@ -226,7 +226,7 @@ func TestCodeGeneration(t *testing.T) {
 			_ = tempFile.Close()
 
 			// Generate code
-			g, err := New(tempFile.Name(), WithPackage("test"))
+			g, err := New(tempFile.Name(), WithPackage("test"), WithServerGeneration(true))
 			require.NoError(t, err)
 
 			code, err := g.Generate(context.Background())

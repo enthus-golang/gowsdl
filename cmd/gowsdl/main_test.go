@@ -6,7 +6,10 @@ package main
 
 import (
 	"errors"
+	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestValidationError(t *testing.T) {
@@ -167,4 +170,101 @@ func TestValidateIdentifier(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWriteData(t *testing.T) {
+	t.Run("successful write", func(t *testing.T) {
+		tmpFile, err := os.CreateTemp("", "test-write-*.tmp")
+		assert.NoError(t, err)
+		defer func() {
+			if err := os.Remove(tmpFile.Name()); err != nil {
+				t.Logf("Failed to remove temp file: %v", err)
+			}
+		}()
+		defer func() {
+			if err := tmpFile.Close(); err != nil {
+				t.Logf("Failed to close temp file: %v", err)
+			}
+		}()
+
+		data := []byte("test data content")
+		err = writeData(tmpFile, data)
+		assert.NoError(t, err)
+
+		// Verify data was written correctly
+		_, err = tmpFile.Seek(0, 0)
+		assert.NoError(t, err)
+		readData := make([]byte, len(data))
+		n, err := tmpFile.Read(readData)
+		assert.NoError(t, err)
+		assert.Equal(t, len(data), n)
+		assert.Equal(t, data, readData)
+	})
+
+	t.Run("write to closed file", func(t *testing.T) {
+		tmpFile, err := os.CreateTemp("", "test-write-*.tmp")
+		assert.NoError(t, err)
+		defer func() {
+			if err := os.Remove(tmpFile.Name()); err != nil {
+				t.Logf("Failed to remove temp file: %v", err)
+			}
+		}()
+		
+		// Close the file before writing
+		err = tmpFile.Close()
+		assert.NoError(t, err)
+
+		data := []byte("test data")
+		err = writeData(tmpFile, data)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to write to file")
+	})
+
+	t.Run("write empty data", func(t *testing.T) {
+		tmpFile, err := os.CreateTemp("", "test-write-*.tmp")
+		assert.NoError(t, err)
+		defer func() {
+			if err := os.Remove(tmpFile.Name()); err != nil {
+				t.Logf("Failed to remove temp file: %v", err)
+			}
+		}()
+		defer func() {
+			if err := tmpFile.Close(); err != nil {
+				t.Logf("Failed to close temp file: %v", err)
+			}
+		}()
+
+		data := []byte{}
+		err = writeData(tmpFile, data)
+		assert.NoError(t, err)
+	})
+
+	t.Run("write large data", func(t *testing.T) {
+		tmpFile, err := os.CreateTemp("", "test-write-*.tmp")
+		assert.NoError(t, err)
+		defer func() {
+			if err := os.Remove(tmpFile.Name()); err != nil {
+				t.Logf("Failed to remove temp file: %v", err)
+			}
+		}()
+		defer func() {
+			if err := tmpFile.Close(); err != nil {
+				t.Logf("Failed to close temp file: %v", err)
+			}
+		}()
+
+		// Create a large data buffer (1MB)
+		data := make([]byte, 1024*1024)
+		for i := range data {
+			data[i] = byte(i % 256)
+		}
+
+		err = writeData(tmpFile, data)
+		assert.NoError(t, err)
+
+		// Verify file size
+		stat, err := tmpFile.Stat()
+		assert.NoError(t, err)
+		assert.Equal(t, int64(len(data)), stat.Size())
+	})
 }

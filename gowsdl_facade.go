@@ -49,6 +49,13 @@ func WithPackage(pkg string) Option {
 	}
 }
 
+// WithServerGeneration enables server code generation
+func WithServerGeneration(generate bool) Option {
+	return func(g *GoWSDL) error {
+		return generator.WithServerGeneration(generate)(g.generator)
+	}
+}
+
 // NewGoWSDL creates a new GoWSDL instance with the provided options
 func NewGoWSDL(file string, opts ...Option) (*GoWSDL, error) {
 	file = strings.TrimSpace(file)
@@ -85,6 +92,7 @@ func NewGoWSDLWithConfig(file, pkg string, httpConfig *HTTPClientConfig, exportA
 		WithPackage(pkg),
 		WithHTTPConfig(httpConfig),
 		WithExportAllTypes(exportAllTypes),
+		WithServerGeneration(true), // Default to true for backward compatibility
 	}
 	return NewGoWSDL(file, opts...)
 }
@@ -94,6 +102,7 @@ func NewGoWSDLWithOptions(file, pkg string, httpConfig *HTTPClientConfig, export
 		WithPackage(pkg),
 		WithHTTPConfig(httpConfig),
 		WithExportAllTypes(exportAllTypes),
+		WithServerGeneration(true), // Default to true for backward compatibility
 	}
 	if useGenerics {
 		opts = append(opts, WithGenerics())

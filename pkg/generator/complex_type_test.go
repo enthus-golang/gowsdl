@@ -66,8 +66,19 @@ func TestComplexTypeFromOriginalWSDL(t *testing.T) {
 	var codeStr string
 	for filename, content := range code {
 		t.Logf("Generated file: %s (size: %d)", filename, len(content))
-		if filename == "types" || len(content) > len(codeStr) {
+		if filename == "types" {
 			codeStr = string(content)
+			break
+		}
+	}
+	
+	// If types not found separately, combine header and types
+	if codeStr == "" {
+		if header, ok := code["header"]; ok {
+			codeStr += string(header)
+		}
+		if types, ok := code["types"]; ok {
+			codeStr += string(types)
 		}
 	}
 	

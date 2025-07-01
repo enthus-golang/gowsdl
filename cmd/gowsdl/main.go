@@ -75,6 +75,7 @@ var dir = flag.String("d", "./", "Directory under which package directory will b
 var insecure = flag.Bool("i", false, "Skips TLS Verification")
 var makePublic = flag.Bool("make-public", true, "Make the generated types public/exported")
 var useGenerics = flag.Bool("use-generics", false, "Generate code using Go generics (requires Go 1.18+)")
+var generateServer = flag.Bool("generate-server", false, "Generate server implementation code")
 
 // HTTP client configuration flags
 var httpTimeout = flag.Duration("http-timeout", 30*time.Second, "Timeout for HTTP requests")
@@ -281,8 +282,19 @@ func run() error {
 		return errors.New("both -tls-client-cert and -tls-client-key must be provided together")
 	}
 
+	// Create options for the generator
+	opts := []gen.Option{
+		gen.WithPackage(*pkg),
+		gen.WithHTTPConfig(httpConfig),
+		gen.WithExportAllTypes(*makePublic),
+		gen.WithServerGeneration(*generateServer),
+	}
+	if *useGenerics {
+		opts = append(opts, gen.WithGenerics())
+	}
+
 	// load wsdl
-	gowsdl, err := gen.NewGoWSDLWithOptions(wsdlPath, *pkg, httpConfig, *makePublic, *useGenerics)
+	gowsdl, err := gen.NewGoWSDL(wsdlPath, opts...)
 	if err != nil {
 		return fmt.Errorf("failed to initialize WSDL generator: %w", err)
 	}
@@ -336,43 +348,45 @@ func run() error {
 		return fmt.Errorf("failed to write formatted code: %w", err)
 	}
 
-	// server
-	serverFileName := "server" + *outFile
-	if err := validateIdentifier(serverFileName, "server file name"); err != nil {
-		return fmt.Errorf("invalid server file name: %w", err)
-	}
-	
-	serverFilePath := filepath.Join(pkgDir, serverFileName)
-	if err := validatePath(serverFilePath); err != nil {
-		return fmt.Errorf("invalid server file path: %w", err)
-	}
-	
-	serverFile, err := os.Create(serverFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to create server file: %w", err)
-	}
-	defer func() {
-		if err := serverFile.Close(); err != nil {
-			log.Printf("Error closing server file: %v", err)
+	// Generate server file only if generateServer flag is set
+	if *generateServer {
+		serverFileName := "server" + *outFile
+		if err := validateIdentifier(serverFileName, "server file name"); err != nil {
+			return fmt.Errorf("invalid server file name: %w", err)
 		}
-	}()
-
-	serverData := new(bytes.Buffer)
-	serverData.Write(gocode["server_header"])
-	serverData.Write(gocode["server_wsdl"])
-	serverData.Write(gocode["server"])
-
-	serverSource, err := format.Source(serverData.Bytes())
-	if err != nil {
-		// Write unformatted server code and return error with context
-		if writeErr := writeData(serverFile, serverData.Bytes()); writeErr != nil {
-			return fmt.Errorf("failed to format server code and failed to write unformatted server code: format error: %w, write error: %v", err, writeErr)
+		
+		serverFilePath := filepath.Join(pkgDir, serverFileName)
+		if err := validatePath(serverFilePath); err != nil {
+			return fmt.Errorf("invalid server file path: %w", err)
 		}
-		return fmt.Errorf("failed to format generated server code: %w", err)
-	}
-	
-	if err := writeData(serverFile, serverSource); err != nil {
-		return fmt.Errorf("failed to write formatted server code: %w", err)
+		
+		serverFile, err := os.Create(serverFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to create server file: %w", err)
+		}
+		defer func() {
+			if err := serverFile.Close(); err != nil {
+				log.Printf("Error closing server file: %v", err)
+			}
+		}()
+
+		serverData := new(bytes.Buffer)
+		serverData.Write(gocode["server_header"])
+		serverData.Write(gocode["server_wsdl"])
+		serverData.Write(gocode["server"])
+
+		serverSource, err := format.Source(serverData.Bytes())
+		if err != nil {
+			// Write unformatted server code and return error with context
+			if writeErr := writeData(serverFile, serverData.Bytes()); writeErr != nil {
+				return fmt.Errorf("failed to format server code and failed to write unformatted server code: format error: %w, write error: %v", err, writeErr)
+			}
+			return fmt.Errorf("failed to format generated server code: %w", err)
+		}
+		
+		if err := writeData(serverFile, serverSource); err != nil {
+			return fmt.Errorf("failed to write formatted server code: %w", err)
+		}
 	}
 
 	log.Println("Done 👍")
