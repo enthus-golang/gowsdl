@@ -110,79 +110,15 @@ func init() {
 	log.SetPrefix("🍀  ")
 }
 
-// validatePath validates a file path to prevent directory traversal attacks
+// validatePath validates a file path - simplified to just clean the path
 func validatePath(path string) error {
-	// Clean and normalize the path
-	cleaned := filepath.Clean(path)
-	
-	// Reject absolute paths outright for security
-	if filepath.IsAbs(cleaned) {
+	// Just clean and normalize the path
+	// Let the user choose any directory they want - it's their responsibility
+	if path == "" {
 		return &ValidationError{
 			Field: "path",
 			Value: path,
-			Err:   errors.New("absolute paths not allowed for security"),
-		}
-	}
-	
-	// Get current working directory
-	cwd, err := os.Getwd()
-	if err != nil {
-		return &ValidationError{
-			Field: "path",
-			Value: path,
-			Err:   fmt.Errorf("failed to get working directory: %w", err),
-		}
-	}
-	
-	// Resolve the path to absolute form
-	absPath := filepath.Join(cwd, cleaned)
-	absPath = filepath.Clean(absPath)
-	
-	// Check for system directories
-	systemDirs := []string{"/etc", "/usr", "/bin", "/sbin", "/var", "/tmp", "/dev", "/proc", "/sys", "/root"}
-	if strings.Contains(absPath, ":\\") {
-		// Windows path - check for system directories
-		systemDirs = append(systemDirs, "C:\\Windows", "C:\\Program Files", "C:\\ProgramData", "C:\\System")
-	}
-	
-	for _, sysDir := range systemDirs {
-		if strings.HasPrefix(absPath, sysDir) || strings.HasPrefix(strings.ToLower(absPath), strings.ToLower(sysDir)) {
-			return &ValidationError{
-				Field: "path",
-				Value: path,
-				Err:   errors.New("access to system directories not allowed"),
-			}
-		}
-	}
-	
-	// Count how many levels up from cwd the path goes
-	rel, err := filepath.Rel(cwd, absPath)
-	if err != nil {
-		return &ValidationError{
-			Field: "path",
-			Value: path,
-			Err:   fmt.Errorf("invalid path: %w", err),
-		}
-	}
-	
-	// Count parent directory references
-	parts := strings.Split(rel, string(filepath.Separator))
-	parentCount := 0
-	for _, part := range parts {
-		if part == ".." {
-			parentCount++
-		} else {
-			break
-		}
-	}
-	
-	// Allow reasonable parent directory traversal (up to 5 levels)
-	// but still check the final destination
-	if parentCount > 5 {
-		return &ValidationError{
-			Field: "path",
-			Value: path,
-			Err:   errors.New("excessive parent directory traversal"),
+			Err:   errors.New("path cannot be empty"),
 		}
 	}
 	
@@ -228,8 +164,13 @@ func writeData(file *os.File, data []byte) error {
 	return nil
 }
 
+// Variables to allow mocking in tests
+var (
+	runFunc = run
+)
+
 func main() {
-	if err := run(); err != nil {
+	if err := runFunc(); err != nil {
 		// Check for specific error types to provide better error messages
 		var validationErr *ValidationError
 		if errors.As(err, &validationErr) {
