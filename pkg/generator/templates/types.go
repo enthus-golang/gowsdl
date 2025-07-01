@@ -248,12 +248,29 @@ const TypesTemplate = `
 				{{end}}
 			{{end}}
 		{{else if eq .Type ""}}
-			{{$typeName := .Name}}
-			{{$memberType := toGoType $typeName .Nillable}}
-			{{if eq .MaxOccurs "unbounded"}}
-				{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{if .SimpleType}}
+				{{/* Element has inline simple type - use its base type */}}
+				{{if .SimpleType.Restriction.Base}}
+					{{$baseType := .SimpleType.Restriction.Base | removeNamespacePrefix}}
+					{{$memberType := toGoType $baseType .Nillable}}
+					{{if eq .MaxOccurs "unbounded"}}
+						{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+					{{else}}
+						{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+					{{end}}
+				{{else}}
+					{{/* Fallback if no restriction base */}}
+					{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{end}}
 			{{else}}
-				{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{/* No type and no inline simple type - use element name as type */}}
+				{{$typeName := .Name}}
+				{{$memberType := toGoType $typeName .Nillable}}
+				{{if eq .MaxOccurs "unbounded"}}
+					{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{else}}
+					{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+				{{end}}
 			{{end}}
 		{{else}}
 			{{$typeName := .Type | removeNamespacePrefix}}
