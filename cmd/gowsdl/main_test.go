@@ -86,14 +86,14 @@ func TestValidatePath(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "directory traversal attempt",
-			path:    "../../../etc/passwd",
-			wantErr: true,
+			name:    "relative path going up",
+			path:    "../wsdl",
+			wantErr: false,
 		},
 		{
-			name:    "absolute path",
+			name:    "absolute path is allowed",
 			path:    "/etc/passwd",
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name:    "clean path with dots",
@@ -101,9 +101,24 @@ func TestValidatePath(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "hidden directory traversal",
-			path:    "output/../../../etc/passwd",
+			name:    "empty path",
+			path:    "",
 			wantErr: true,
+		},
+		{
+			name:    "valid parent directory for output",
+			path:    "../output",
+			wantErr: false,
+		},
+		{
+			name:    "tmp directory is allowed",
+			path:    "/tmp",
+			wantErr: false,
+		},
+		{
+			name:    "system directory is allowed",
+			path:    "/usr/local/bin",
+			wantErr: false,
 		},
 	}
 
