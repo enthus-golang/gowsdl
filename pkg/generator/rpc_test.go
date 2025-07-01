@@ -353,7 +353,7 @@ func TestMessageTypeGeneration(t *testing.T) {
 	assert.Contains(t, generatedCode, "type RequestBody struct {")
 	
 	// Check operations use correct types
-	assert.Contains(t, generatedCode, "multiPartOp(ctx context.Context, request *MultiPartMessage) (*MultiPartMessage, error)")
-	assert.Contains(t, generatedCode, "singlePrimitiveOp(ctx context.Context, request *SinglePrimitiveMessage) (*SinglePrimitiveMessage, error)")
-	assert.Contains(t, generatedCode, "singleElementOp(ctx context.Context, request *RequestBody) (*RequestBody, error)")
+	assert.Contains(t, generatedCode, "MultiPartOp(ctx context.Context, request *MultiPartMessage) (*MultiPartMessage, error)")
+	assert.Contains(t, generatedCode, "SinglePrimitiveOp(ctx context.Context, request *SinglePrimitiveMessage) (*SinglePrimitiveMessage, error)")
+	assert.Contains(t, generatedCode, "SingleElementOp(ctx context.Context, request *RequestBody) (*RequestBody, error)")
 }
