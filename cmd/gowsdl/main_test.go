@@ -86,8 +86,13 @@ func TestValidatePath(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "directory traversal attempt",
-			path:    "../../../etc/passwd",
+			name:    "relative path going up",
+			path:    "../wsdl",
+			wantErr: false,
+		},
+		{
+			name:    "directory traversal to system dir",
+			path:    "../../../../../../../../etc/passwd",
 			wantErr: true,
 		},
 		{
@@ -102,8 +107,13 @@ func TestValidatePath(t *testing.T) {
 		},
 		{
 			name:    "hidden directory traversal",
-			path:    "output/../../../etc/passwd",
+			path:    "output/../../../../../../../../etc/passwd",
 			wantErr: true,
+		},
+		{
+			name:    "valid parent directory for output",
+			path:    "../output",
+			wantErr: false,
 		},
 	}
 

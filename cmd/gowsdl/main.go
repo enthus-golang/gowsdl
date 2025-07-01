@@ -115,21 +115,74 @@ func validatePath(path string) error {
 	// Clean and normalize the path
 	cleaned := filepath.Clean(path)
 	
-	// Check for directory traversal attempts
-	if strings.Contains(cleaned, "..") {
-		return &ValidationError{
-			Field: "path",
-			Value: path,
-			Err:   errors.New("contains directory traversal sequence '..'"),
-		}
-	}
-	
-	// Check for absolute paths that might overwrite system files
+	// Reject absolute paths outright for security
 	if filepath.IsAbs(cleaned) {
 		return &ValidationError{
 			Field: "path",
 			Value: path,
 			Err:   errors.New("absolute paths not allowed for security"),
+		}
+	}
+	
+	// Get current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		return &ValidationError{
+			Field: "path",
+			Value: path,
+			Err:   fmt.Errorf("failed to get working directory: %w", err),
+		}
+	}
+	
+	// Resolve the path to absolute form
+	absPath := filepath.Join(cwd, cleaned)
+	absPath = filepath.Clean(absPath)
+	
+	// Check for system directories
+	systemDirs := []string{"/etc", "/usr", "/bin", "/sbin", "/var", "/tmp", "/dev", "/proc", "/sys", "/root"}
+	if strings.Contains(absPath, ":\\") {
+		// Windows path - check for system directories
+		systemDirs = append(systemDirs, "C:\\Windows", "C:\\Program Files", "C:\\ProgramData", "C:\\System")
+	}
+	
+	for _, sysDir := range systemDirs {
+		if strings.HasPrefix(absPath, sysDir) || strings.HasPrefix(strings.ToLower(absPath), strings.ToLower(sysDir)) {
+			return &ValidationError{
+				Field: "path",
+				Value: path,
+				Err:   errors.New("access to system directories not allowed"),
+			}
+		}
+	}
+	
+	// Count how many levels up from cwd the path goes
+	rel, err := filepath.Rel(cwd, absPath)
+	if err != nil {
+		return &ValidationError{
+			Field: "path",
+			Value: path,
+			Err:   fmt.Errorf("invalid path: %w", err),
+		}
+	}
+	
+	// Count parent directory references
+	parts := strings.Split(rel, string(filepath.Separator))
+	parentCount := 0
+	for _, part := range parts {
+		if part == ".." {
+			parentCount++
+		} else {
+			break
+		}
+	}
+	
+	// Allow reasonable parent directory traversal (up to 5 levels)
+	// but still check the final destination
+	if parentCount > 5 {
+		return &ValidationError{
+			Field: "path",
+			Value: path,
+			Err:   errors.New("excessive parent directory traversal"),
 		}
 	}
 	
