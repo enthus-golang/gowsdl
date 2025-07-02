@@ -398,13 +398,7 @@ const TypesTemplate = `
 		{{end}}
 		{{if $createAlias}}
 			{{/* For complex types, use the public version of the type name */}}
-			{{$isComplexType := false}}
-			{{range $.ComplexTypes}}
-				{{if eq .Name $baseType}}
-					{{$isComplexType = true}}
-				{{end}}
-			{{end}}
-			{{if $isComplexType}}
+			{{if isComplexType .Type}}
 				type {{$type}} {{$goPublicType}}
 			{{else}}
 				type {{$type}} {{$goType}}
