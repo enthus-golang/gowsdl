@@ -303,6 +303,35 @@ func (g *Generator) genHeader() ([]byte, error) {
 
 func (g *Generator) genTypes() ([]byte, error) {
 	funcMap := g.createFuncMap()
+	
+	// Pre-process complex types into a map for efficient lookup
+	complexTypeMap := make(map[string]bool)
+	
+	// Collect all complex types first
+	var schemas []*parser.XSDSchema
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		schemas = g.wsdl2.Types.Schemas
+	} else if g.wsdl != nil {
+		schemas = g.wsdl.Types.Schemas
+	}
+	
+	for _, schema := range schemas {
+		if schema.ComplexTypes != nil {
+			for _, ct := range schema.ComplexTypes {
+				complexTypeMap[ct.Name] = true
+			}
+		}
+	}
+	
+	// Add function to check if a type is complex
+	funcMap["isComplexType"] = func(typeName string) bool {
+		// Remove namespace prefix if present
+		if idx := strings.LastIndex(typeName, ":"); idx >= 0 {
+			typeName = typeName[idx+1:]
+		}
+		return complexTypeMap[typeName]
+	}
+	
 	tmpl, err := template.New("types").Funcs(funcMap).Parse(templates.TypesTemplate)
 	if err != nil {
 		return nil, err
@@ -320,13 +349,8 @@ func (g *Generator) genTypes() ([]byte, error) {
 		TargetNamespace string
 	}{}
 	
-	// Get types based on version and merge all schemas
-	var schemas []*parser.XSDSchema
-	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
-		schemas = g.wsdl2.Types.Schemas
-	} else if g.wsdl != nil {
-		schemas = g.wsdl.Types.Schemas
-		// Add RPC-style messages for WSDL 1.1
+	// Add RPC-style messages for WSDL 1.1
+	if g.wsdl != nil {
 		data.Messages = g.wsdl.Messages
 	}
 	

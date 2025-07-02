@@ -387,32 +387,47 @@ const TypesTemplate = `
 {{range .Elements}}
 	{{$type := replaceReservedWords .Name | makePublic}}
 	{{if ne .Type ""}}
+		{{$baseType := .Type | removeNamespacePrefix | replaceReservedWords}}
 		{{$goType := toGoType .Type .Nillable | removePointerFromType}}
-		type {{$type}} {{$goType}}
-		{{if eq $goType "soap.XSDDateTime"}}
-			func (xdt {{$type}}) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-				return soap.XSDDateTime(xdt).MarshalXML(e, start)
-			}
+		{{$goPublicType := $baseType | makePublic}}
+		{{/* Check if element name is different from the type name */}}
+		{{$createAlias := true}}
+		{{if eq .Name $baseType}}
+			{{/* Don't create type alias if element name equals the type name */}}
+			{{$createAlias = false}}
+		{{end}}
+		{{if $createAlias}}
+			{{/* For complex types, use the public version of the type name */}}
+			{{if isComplexType .Type}}
+				type {{$type}} {{$goPublicType}}
+			{{else}}
+				type {{$type}} {{$goType}}
+			{{end}}
+			{{if eq $goType "soap.XSDDateTime"}}
+				func (xdt {{$type}}) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+					return soap.XSDDateTime(xdt).MarshalXML(e, start)
+				}
 
-			func (xdt *{{$type}}) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-				return (*soap.XSDDateTime)(xdt).UnmarshalXML(d, start)
-			}
-		{{else if eq $goType "soap.XSDDate"}}
-			func (xd {{$type}}) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-				return soap.XSDDate(xd).MarshalXML(e, start)
-			}
+				func (xdt *{{$type}}) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+					return (*soap.XSDDateTime)(xdt).UnmarshalXML(d, start)
+				}
+			{{else if eq $goType "soap.XSDDate"}}
+				func (xd {{$type}}) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+					return soap.XSDDate(xd).MarshalXML(e, start)
+				}
 
-			func (xd *{{$type}}) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-				return (*soap.XSDDate)(xd).UnmarshalXML(d, start)
-			}
-		{{else if eq $goType "soap.XSDTime"}}
-			func (xt {{$type}}) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-				return soap.XSDTime(xt).MarshalXML(e, start)
-			}
+				func (xd *{{$type}}) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+					return (*soap.XSDDate)(xd).UnmarshalXML(d, start)
+				}
+			{{else if eq $goType "soap.XSDTime"}}
+				func (xt {{$type}}) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+					return soap.XSDTime(xt).MarshalXML(e, start)
+				}
 
-			func (xt *{{$type}}) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-				return (*soap.XSDTime)(xt).UnmarshalXML(d, start)
-			}
+				func (xt *{{$type}}) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+					return (*soap.XSDTime)(xt).UnmarshalXML(d, start)
+				}
+			{{end}}
 		{{end}}
 	{{else}}
 		{{if .ComplexType}}
