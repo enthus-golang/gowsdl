@@ -76,7 +76,9 @@ func TestElementAliasGeneration(t *testing.T) {
 	// Write to temp file
 	tmpFile, err := os.CreateTemp("", "test-element-alias-*.wsdl")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		_ = os.Remove(tmpFile.Name())
+	}()
 
 	_, err = tmpFile.WriteString(wsdlContent)
 	require.NoError(t, err)
@@ -144,7 +146,9 @@ func TestElementAliasWithPrimitiveTypes(t *testing.T) {
 	// Write to temp file
 	tmpFile, err := os.CreateTemp("", "test-primitive-alias-*.wsdl")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		_ = os.Remove(tmpFile.Name())
+	}()
 
 	_, err = tmpFile.WriteString(wsdlContent)
 	require.NoError(t, err)
