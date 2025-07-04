@@ -367,7 +367,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 	}
 	
 	// Collect optional complex types
-	data.OptionalComplexTypes = g.collectOptionalComplexTypes(data)
+	data.OptionalComplexTypes = g.collectOptionalComplexTypes(data.ComplexTypes, data.Elements)
 	
 	// Build lookup map for optional complex type names
 	optionalTypeMap := make(map[string]string)

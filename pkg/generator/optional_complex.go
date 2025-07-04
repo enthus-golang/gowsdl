@@ -16,24 +16,16 @@ type OptionalComplexType struct {
 }
 
 // collectOptionalComplexTypes collects all optional inline complex types
-func (g *Generator) collectOptionalComplexTypes(data struct {
-	SimpleType      []*parser.XSDSimpleType
-	ComplexTypes    []*parser.XSDComplexType
-	Elements        []*parser.XSDElement
-	Schemas         []*parser.XSDSchema
-	Messages        []*parser.WSDLMessage
-	TargetNamespace string
-	OptionalComplexTypes []OptionalComplexType
-}) []OptionalComplexType {
+func (g *Generator) collectOptionalComplexTypes(complexTypes []*parser.XSDComplexType, elements []*parser.XSDElement) []OptionalComplexType {
 	var result []OptionalComplexType
 	
 	// Check complex types
-	for _, ct := range data.ComplexTypes {
+	for _, ct := range complexTypes {
 		result = append(result, g.collectFromComplexType(ct.Name, ct)...)
 	}
 	
 	// Check global elements
-	for _, elem := range data.Elements {
+	for _, elem := range elements {
 		if elem.ComplexType != nil {
 			result = append(result, g.collectFromComplexType(elem.Name, elem.ComplexType)...)
 		}
@@ -79,6 +71,11 @@ func (g *Generator) collectFromComplexType(parentTypeName string, ct *parser.XSD
 }
 
 // generateEmptyCheck generates the condition to check if all fields are empty
+// Note: This function has known limitations:
+// - Nested complex types are skipped (would require recursive checking)
+// - Element references (ref) are skipped (type information not available)
+// - Default values are not considered
+// For a more complete solution, consider generating IsEmpty methods on the types themselves
 func generateEmptyCheck(elem *parser.XSDElement) string {
 	var checks []string
 	
@@ -100,29 +97,65 @@ func generateEmptyCheck(elem *parser.XSDElement) string {
 	allElements := append(append(elem.ComplexType.Sequence, elem.ComplexType.Choice...), elem.ComplexType.All...)
 	for _, e := range allElements {
 		// Use simple field name transformation for template
-		fieldName := strings.Title(e.Name)
+		fieldName := utils.MakePublic(e.Name)
 		
 		// For string types, check if empty
-		if e.Type != "" && strings.Contains(strings.ToLower(e.Type), "string") {
-			checks = append(checks, fmt.Sprintf("t.%s == \"\"", fieldName))
-		} else if e.Type != "" {
-			// For numeric types, check if zero
-			// This is a simplification - in practice we'd need type-specific checks
-			checks = append(checks, fmt.Sprintf("t.%s == 0", fieldName))
+		if e.Type != "" {
+			typeLower := strings.ToLower(e.Type)
+			if strings.Contains(typeLower, "string") {
+				checks = append(checks, fmt.Sprintf("t.%s == \"\"", fieldName))
+			} else if strings.Contains(typeLower, "decimal") || strings.Contains(typeLower, "float") || 
+				strings.Contains(typeLower, "double") {
+				checks = append(checks, fmt.Sprintf("t.%s == 0", fieldName))
+			} else if strings.Contains(typeLower, "int") || strings.Contains(typeLower, "long") || 
+				strings.Contains(typeLower, "short") || strings.Contains(typeLower, "byte") {
+				checks = append(checks, fmt.Sprintf("t.%s == 0", fieldName))
+			} else if strings.Contains(typeLower, "bool") {
+				checks = append(checks, fmt.Sprintf("!t.%s", fieldName))
+			} else if strings.Contains(typeLower, "date") || strings.Contains(typeLower, "time") {
+				// For date/time types, check if it's the zero value
+				checks = append(checks, fmt.Sprintf("t.%s.IsZero()", fieldName))
+			} else {
+				// Default to checking against zero value
+				checks = append(checks, fmt.Sprintf("t.%s == \"\"", fieldName))
+			}
 		} else if e.ComplexType != nil {
-			// For complex types, we'd need to check if they're at zero value
-			// For now, skip this check as it's complex
+			// For nested complex types, we need to check all their fields
+			// For now, we'll skip this as it would require recursive checking
+			// The template will handle this by generating proper types
 			continue
 		} else {
-			// Default to string check
-			checks = append(checks, fmt.Sprintf("t.%s == \"\"", fieldName))
+			// For elements without explicit type, check if it's a named type
+			// In WSDL, elements can reference other types by name
+			if e.Ref != "" {
+				// Reference to another element - skip for now as we don't know its type
+				continue
+			} else {
+				// Default to string check for unknown types
+				checks = append(checks, fmt.Sprintf("t.%s == \"\"", fieldName))
+			}
 		}
 	}
 	
 	// Check attributes
 	for _, attr := range elem.ComplexType.Attributes {
-		attrName := strings.Title(attr.Name)
-		checks = append(checks, fmt.Sprintf("t.%s == \"\"", attrName))
+		attrName := utils.MakePublic(attr.Name)
+		typeLower := strings.ToLower(attr.Type)
+		
+		if strings.Contains(typeLower, "string") {
+			checks = append(checks, fmt.Sprintf("t.%s == \"\"", attrName))
+		} else if strings.Contains(typeLower, "decimal") || strings.Contains(typeLower, "float") || 
+			strings.Contains(typeLower, "double") {
+			checks = append(checks, fmt.Sprintf("t.%s == 0", attrName))
+		} else if strings.Contains(typeLower, "int") || strings.Contains(typeLower, "long") || 
+			strings.Contains(typeLower, "short") || strings.Contains(typeLower, "byte") {
+			checks = append(checks, fmt.Sprintf("t.%s == 0", attrName))
+		} else if strings.Contains(typeLower, "bool") {
+			checks = append(checks, fmt.Sprintf("!t.%s", attrName))
+		} else {
+			// Default to string check
+			checks = append(checks, fmt.Sprintf("t.%s == \"\"", attrName))
+		}
 	}
 	
 	if len(checks) == 0 {
