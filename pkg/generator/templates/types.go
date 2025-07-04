@@ -62,13 +62,23 @@ const TypesTemplate = `
 						{{end}}
 					} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 				{{else}}
-					{{$memberName}} struct {
-						Value {{toGoType .ComplexType.SimpleContent.Extension.Base false}} ` + "`" + `xml:",chardata" json:"-,"` + "`" + `
-						{{range .ComplexType.SimpleContent.Extension.Attributes}}
-							{{$attrName := .Name | replaceReservedWords | makePublic}}
-							{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
-						{{end}}
-					} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+					{{if eq .MinOccurs "0"}}
+						{{$memberName}} *struct {
+							Value {{toGoType .ComplexType.SimpleContent.Extension.Base false}} ` + "`" + `xml:",chardata" json:"-,"` + "`" + `
+							{{range .ComplexType.SimpleContent.Extension.Attributes}}
+								{{$attrName := .Name | replaceReservedWords | makePublic}}
+								{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+							{{end}}
+						} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+					{{else}}
+						{{$memberName}} struct {
+							Value {{toGoType .ComplexType.SimpleContent.Extension.Base false}} ` + "`" + `xml:",chardata" json:"-,"` + "`" + `
+							{{range .ComplexType.SimpleContent.Extension.Attributes}}
+								{{$attrName := .Name | replaceReservedWords | makePublic}}
+								{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+							{{end}}
+						} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+					{{end}}
 				{{end}}
 			{{else if or .ComplexType.Sequence .ComplexType.Choice .ComplexType.All}}
 				{{/* Complex type with sequence/choice/all - generate inline struct */}}
@@ -91,9 +101,15 @@ const TypesTemplate = `
 										{{template "ComplexTypeInline" .ComplexType}}
 									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{else}}
-									{{$seqMemberName}} struct {
-										{{template "ComplexTypeInline" .ComplexType}}
-									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{if eq .MinOccurs "0"}}
+										{{$seqMemberName}} *struct {
+											{{template "ComplexTypeInline" .ComplexType}}
+										} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{else}}
+										{{$seqMemberName}} struct {
+											{{template "ComplexTypeInline" .ComplexType}}
+										} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{end}}
 								{{end}}
 							{{else}}
 								{{$seqMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
@@ -116,9 +132,15 @@ const TypesTemplate = `
 										{{template "ComplexTypeInline" .ComplexType}}
 									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{else}}
-									{{$choiceMemberName}} struct {
-										{{template "ComplexTypeInline" .ComplexType}}
-									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{if eq .MinOccurs "0"}}
+										{{$choiceMemberName}} *struct {
+											{{template "ComplexTypeInline" .ComplexType}}
+										} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{else}}
+										{{$choiceMemberName}} struct {
+											{{template "ComplexTypeInline" .ComplexType}}
+										} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{end}}
 								{{end}}
 							{{else}}
 								{{$choiceMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
@@ -141,9 +163,15 @@ const TypesTemplate = `
 										{{template "ComplexTypeInline" .ComplexType}}
 									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{else}}
-									{{$allMemberName}} struct {
-										{{template "ComplexTypeInline" .ComplexType}}
-									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{if eq .MinOccurs "0"}}
+										{{$allMemberName}} *struct {
+											{{template "ComplexTypeInline" .ComplexType}}
+										} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{else}}
+										{{$allMemberName}} struct {
+											{{template "ComplexTypeInline" .ComplexType}}
+										} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{end}}
 								{{end}}
 							{{else}}
 								{{$allMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
@@ -155,8 +183,12 @@ const TypesTemplate = `
 						{{end}}
 					} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 				{{else}}
-					{{$memberName}} struct {
-						{{range .ComplexType.Sequence}}
+					{{if eq .MinOccurs "0"}}
+						{{$memberName}} *struct {
+					{{else}}
+						{{$memberName}} struct {
+					{{end}}
+							{{range .ComplexType.Sequence}}
 							{{$seqMemberName := .Name | replaceReservedWords | makePublic}}
 							{{if .Type}}
 								{{$seqTypeName := .Type | removeNamespacePrefix}}
@@ -173,9 +205,15 @@ const TypesTemplate = `
 										{{template "ComplexTypeInline" .ComplexType}}
 									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{else}}
-									{{$seqMemberName}} struct {
-										{{template "ComplexTypeInline" .ComplexType}}
-									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{if eq .MinOccurs "0"}}
+										{{$seqMemberName}} *struct {
+											{{template "ComplexTypeInline" .ComplexType}}
+										} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{else}}
+										{{$seqMemberName}} struct {
+											{{template "ComplexTypeInline" .ComplexType}}
+										} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{end}}
 								{{end}}
 							{{else}}
 								{{$seqMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
@@ -198,9 +236,15 @@ const TypesTemplate = `
 										{{template "ComplexTypeInline" .ComplexType}}
 									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{else}}
-									{{$choiceMemberName}} struct {
-										{{template "ComplexTypeInline" .ComplexType}}
-									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{if eq .MinOccurs "0"}}
+										{{$choiceMemberName}} *struct {
+											{{template "ComplexTypeInline" .ComplexType}}
+										} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{else}}
+										{{$choiceMemberName}} struct {
+											{{template "ComplexTypeInline" .ComplexType}}
+										} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{end}}
 								{{end}}
 							{{else}}
 								{{$choiceMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
@@ -223,9 +267,15 @@ const TypesTemplate = `
 										{{template "ComplexTypeInline" .ComplexType}}
 									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 								{{else}}
-									{{$allMemberName}} struct {
-										{{template "ComplexTypeInline" .ComplexType}}
-									} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{if eq .MinOccurs "0"}}
+										{{$allMemberName}} *struct {
+											{{template "ComplexTypeInline" .ComplexType}}
+										} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{else}}
+										{{$allMemberName}} struct {
+											{{template "ComplexTypeInline" .ComplexType}}
+										} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+									{{end}}
 								{{end}}
 							{{else}}
 								{{$allMemberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
