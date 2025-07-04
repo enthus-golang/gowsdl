@@ -92,11 +92,14 @@ func TestOptionalComplexTypes(t *testing.T) {
 	// Write WSDL to temp file
 	tempFile, err := os.CreateTemp("", "test-optional-complex-*.wsdl")
 	require.NoError(t, err)
-	defer os.Remove(tempFile.Name())
+	defer func() {
+		_ = os.Remove(tempFile.Name())
+	}()
 
 	_, err = tempFile.WriteString(wsdl)
 	require.NoError(t, err)
-	tempFile.Close()
+	err = tempFile.Close()
+	require.NoError(t, err)
 
 	// Create generator
 	g, err := New(tempFile.Name(), WithPackage("test"))
