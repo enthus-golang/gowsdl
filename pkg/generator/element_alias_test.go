@@ -106,8 +106,10 @@ func TestElementAliasGeneration(t *testing.T) {
 	assert.NotContains(t, typesStr, "type CheckV1 checkV1")
 	assert.NotContains(t, typesStr, "type CheckV1Response checkV1Response")
 	
-	// Should have type alias for the element with different name
-	assert.Contains(t, typesStr, "type DifferentName CheckV1")
+	// Should have struct with XMLName for the element with different name
+	assert.Contains(t, typesStr, "type DifferentName struct {")
+	assert.Contains(t, typesStr, `XMLName xml.Name`)
+	assert.Contains(t, typesStr, "CheckV1")
 	
 	// Count occurrences of type definitions
 	checkV1Count := strings.Count(typesStr, "type CheckV1 ")

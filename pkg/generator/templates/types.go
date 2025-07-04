@@ -58,7 +58,7 @@ const TypesTemplate = `
 						Value {{toGoType .ComplexType.SimpleContent.Extension.Base false}} ` + "`" + `xml:",chardata" json:"-,"` + "`" + `
 						{{range .ComplexType.SimpleContent.Extension.Attributes}}
 							{{$attrName := .Name | replaceReservedWords | makePublic}}
-							{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{getTargetNamespace}} {{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+							{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 						{{end}}
 					} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 				{{else}}
@@ -66,7 +66,7 @@ const TypesTemplate = `
 						Value {{toGoType .ComplexType.SimpleContent.Extension.Base false}} ` + "`" + `xml:",chardata" json:"-,"` + "`" + `
 						{{range .ComplexType.SimpleContent.Extension.Attributes}}
 							{{$attrName := .Name | replaceReservedWords | makePublic}}
-							{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{getTargetNamespace}} {{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+							{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 						{{end}}
 					} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 				{{end}}
@@ -336,7 +336,7 @@ const TypesTemplate = `
 		{{if eq .Name "id"}}
 			{{$name = "idAttr"}}
 		{{end}}
-		{{replaceAttrReservedWords $name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{getTargetNamespace}} {{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
+		{{replaceAttrReservedWords $name | makePublic}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
 	{{end}}
 
 	{{if ne (len .Any) 0}}
@@ -399,7 +399,10 @@ const TypesTemplate = `
 		{{if $createAlias}}
 			{{/* For complex types, use the public version of the type name */}}
 			{{if isComplexType .Type}}
-				type {{$type}} {{$goPublicType}}
+				type {{$type}} struct {
+					XMLName xml.Name ` + "`" + `xml:"{{$.TargetNamespace}} {{.Name}}"` + "`" + `
+					{{$goPublicType}}
+				}
 			{{else}}
 				type {{$type}} {{$goType}}
 			{{end}}
