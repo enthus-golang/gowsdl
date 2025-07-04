@@ -79,6 +79,11 @@ func (g *Generator) collectFromComplexType(parentTypeName string, ct *parser.XSD
 func generateEmptyCheck(elem *parser.XSDElement) string {
 	var checks []string
 	
+	// Check if element or complex type is nil
+	if elem == nil || elem.ComplexType == nil {
+		return "false"
+	}
+	
 	// Check SimpleContent
 	if elem.ComplexType.SimpleContent.Extension.Base != "" {
 		baseType := strings.ToLower(elem.ComplexType.SimpleContent.Extension.Base)
@@ -90,6 +95,27 @@ func generateEmptyCheck(elem *parser.XSDElement) string {
 		} else {
 			// Default to zero value check for unknown types
 			checks = append(checks, "t.Value == 0")
+		}
+		
+		// Also check attributes in SimpleContent extension
+		for _, attr := range elem.ComplexType.SimpleContent.Extension.Attributes {
+			attrName := utils.MakePublic(attr.Name)
+			typeLower := strings.ToLower(attr.Type)
+			
+			if strings.Contains(typeLower, "string") {
+				checks = append(checks, fmt.Sprintf("t.%s == \"\"", attrName))
+			} else if strings.Contains(typeLower, "decimal") || strings.Contains(typeLower, "float") || 
+				strings.Contains(typeLower, "double") {
+				checks = append(checks, fmt.Sprintf("t.%s == 0", attrName))
+			} else if strings.Contains(typeLower, "int") || strings.Contains(typeLower, "long") || 
+				strings.Contains(typeLower, "short") || strings.Contains(typeLower, "byte") {
+				checks = append(checks, fmt.Sprintf("t.%s == 0", attrName))
+			} else if strings.Contains(typeLower, "bool") {
+				checks = append(checks, fmt.Sprintf("!t.%s", attrName))
+			} else {
+				// Default to string check
+				checks = append(checks, fmt.Sprintf("t.%s == \"\"", attrName))
+			}
 		}
 	}
 	
@@ -137,24 +163,26 @@ func generateEmptyCheck(elem *parser.XSDElement) string {
 		}
 	}
 	
-	// Check attributes
-	for _, attr := range elem.ComplexType.Attributes {
-		attrName := utils.MakePublic(attr.Name)
-		typeLower := strings.ToLower(attr.Type)
-		
-		if strings.Contains(typeLower, "string") {
-			checks = append(checks, fmt.Sprintf("t.%s == \"\"", attrName))
-		} else if strings.Contains(typeLower, "decimal") || strings.Contains(typeLower, "float") || 
-			strings.Contains(typeLower, "double") {
-			checks = append(checks, fmt.Sprintf("t.%s == 0", attrName))
-		} else if strings.Contains(typeLower, "int") || strings.Contains(typeLower, "long") || 
-			strings.Contains(typeLower, "short") || strings.Contains(typeLower, "byte") {
-			checks = append(checks, fmt.Sprintf("t.%s == 0", attrName))
-		} else if strings.Contains(typeLower, "bool") {
-			checks = append(checks, fmt.Sprintf("!t.%s", attrName))
-		} else {
-			// Default to string check
-			checks = append(checks, fmt.Sprintf("t.%s == \"\"", attrName))
+	// Check attributes (only if not in SimpleContent - already handled above)
+	if elem.ComplexType.SimpleContent.Extension.Base == "" {
+		for _, attr := range elem.ComplexType.Attributes {
+			attrName := utils.MakePublic(attr.Name)
+			typeLower := strings.ToLower(attr.Type)
+			
+			if strings.Contains(typeLower, "string") {
+				checks = append(checks, fmt.Sprintf("t.%s == \"\"", attrName))
+			} else if strings.Contains(typeLower, "decimal") || strings.Contains(typeLower, "float") || 
+				strings.Contains(typeLower, "double") {
+				checks = append(checks, fmt.Sprintf("t.%s == 0", attrName))
+			} else if strings.Contains(typeLower, "int") || strings.Contains(typeLower, "long") || 
+				strings.Contains(typeLower, "short") || strings.Contains(typeLower, "byte") {
+				checks = append(checks, fmt.Sprintf("t.%s == 0", attrName))
+			} else if strings.Contains(typeLower, "bool") {
+				checks = append(checks, fmt.Sprintf("!t.%s", attrName))
+			} else {
+				// Default to string check
+				checks = append(checks, fmt.Sprintf("t.%s == \"\"", attrName))
+			}
 		}
 	}
 	
