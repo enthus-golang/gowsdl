@@ -51,10 +51,11 @@ const TypesTemplate = `
 			{{end}}
 		{{else if .ComplexType}}
 			{{/* Handle inline complex types */}}
-			{{if isOptionalComplexType .}}
-				{{/* Optional complex type - use named type */}}
-				{{$typeName := getOptionalComplexTypeName .Name}}
-				{{$memberName}} {{$typeName}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+			{{if and (eq .MinOccurs "0") (ne .MaxOccurs "unbounded")}}
+				{{/* Optional complex type - use pointer */}}
+				{{$memberName}} *struct {
+					{{template "ComplexTypeInline" .ComplexType}}
+				} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
 			{{else if .ComplexType.SimpleContent.Extension.Base}}
 				{{/* Simple content with attributes - generate inline struct */}}
 				{{if eq .MaxOccurs "unbounded"}}
@@ -514,79 +515,4 @@ const TypesTemplate = `
 	{{end}}
 {{end}}
 
-{{/* Generate named types for optional complex elements */}}
-{{range .OptionalComplexTypes}}
-// {{.TypeName}} represents an optional {{.Element.Name}} element
-type {{.TypeName}} struct {
-	{{with .Element.ComplexType}}
-		{{with .SimpleContent}}
-			{{if ne .Extension.Base ""}}
-				Value {{toGoType .Extension.Base false}} ` + "`" + `xml:",chardata" json:"-,"` + "`" + `
-			{{end}}
-			{{range .Extension.Attributes}}
-				{{$attrName := .Name | replaceAttrReservedWords | makePublic}}
-				{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
-		{{end}}
-		{{range .Sequence}}
-			{{$memberName := .Name | replaceReservedWords | makePublic}}
-			{{if .Type}}
-				{{$typeName := .Type | removeNamespacePrefix}}
-				{{$memberType := toGoType $typeName .Nillable}}
-				{{if eq .MaxOccurs "unbounded"}}
-					{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{else}}
-					{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{end}}
-			{{else}}
-				{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
-		{{end}}
-		{{range .Choice}}
-			{{$memberName := .Name | replaceReservedWords | makePublic}}
-			{{if .Type}}
-				{{$typeName := .Type | removeNamespacePrefix}}
-				{{$memberType := toGoType $typeName .Nillable}}
-				{{if eq .MaxOccurs "unbounded"}}
-					{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{else}}
-					{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{end}}
-			{{else}}
-				{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
-		{{end}}
-		{{range .All}}
-			{{$memberName := .Name | replaceReservedWords | makePublic}}
-			{{if .Type}}
-				{{$typeName := .Type | removeNamespacePrefix}}
-				{{$memberType := toGoType $typeName .Nillable}}
-				{{if eq .MaxOccurs "unbounded"}}
-					{{$memberName}} []{{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{else}}
-					{{$memberName}} {{$memberType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-				{{end}}
-			{{else}}
-				{{$memberName}} string ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
-			{{end}}
-		{{end}}
-		{{range .Attributes}}
-			{{$attrName := .Name | replaceAttrReservedWords | makePublic}}
-			{{$attrName}} {{toGoType .Type false}} ` + "`" + `xml:"{{.Name}},attr,omitempty" json:"{{.Name}},omitempty"` + "`" + `
-		{{end}}
-	{{end}}
-}
-
-// MarshalXML implements xml.Marshaler for {{.TypeName}}
-func (t {{.TypeName}}) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	// Check if all fields are empty
-	if {{generateEmptyCheck .Element}} {
-		// Skip marshaling - return nil
-		return nil
-	}
-	// Use default marshaling
-	type alias {{.TypeName}}
-	return e.EncodeElement(alias(t), start)
-}
-{{end}}
 `

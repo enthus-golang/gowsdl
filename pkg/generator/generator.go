@@ -332,7 +332,14 @@ func (g *Generator) genTypes() ([]byte, error) {
 		return complexTypeMap[typeName]
 	}
 	
-	// Collect optional complex types first to build lookup
+	tmpl, err := template.New("types").Funcs(funcMap).Parse(templates.TypesTemplate)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	
+	// Merge all schemas into a single data structure
 	data := struct {
 		SimpleType      []*parser.XSDSimpleType
 		ComplexTypes    []*parser.XSDComplexType
@@ -340,7 +347,6 @@ func (g *Generator) genTypes() ([]byte, error) {
 		Schemas         []*parser.XSDSchema
 		Messages        []*parser.WSDLMessage
 		TargetNamespace string
-		OptionalComplexTypes []OptionalComplexType
 	}{}
 	
 	// Add RPC-style messages for WSDL 1.1
@@ -365,44 +371,6 @@ func (g *Generator) genTypes() ([]byte, error) {
 			data.Elements = append(data.Elements, schema.Elements...)
 		}
 	}
-	
-	// Collect optional complex types
-	data.OptionalComplexTypes = g.collectOptionalComplexTypes(data.ComplexTypes, data.Elements)
-	
-	// Build lookup map for optional complex type names
-	optionalTypeMap := make(map[string]string)
-	for _, oct := range data.OptionalComplexTypes {
-		// Create a key based on element name (we'll need to match this in the template)
-		key := oct.Element.Name
-		optionalTypeMap[key] = oct.TypeName
-	}
-	
-	// Add function to look up optional complex type name
-	funcMap["getOptionalComplexTypeName"] = func(elementName string) string {
-		if typeName, ok := optionalTypeMap[elementName]; ok {
-			return typeName
-		}
-		return ""
-	}
-	
-	// Add function to check if element is optional complex type
-	funcMap["isOptionalComplexType"] = func(element *parser.XSDElement) bool {
-		if element.MinOccurs == "0" && element.ComplexType != nil && element.MaxOccurs != "unbounded" {
-			_, exists := optionalTypeMap[element.Name]
-			return exists
-		}
-		return false
-	}
-	
-	// Add function to generate empty check for optional complex types
-	funcMap["generateEmptyCheck"] = generateEmptyCheck
-	
-	tmpl, err := template.New("types").Funcs(funcMap).Parse(templates.TypesTemplate)
-	if err != nil {
-		return nil, err
-	}
-
-	var buf bytes.Buffer
 	
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return nil, err
