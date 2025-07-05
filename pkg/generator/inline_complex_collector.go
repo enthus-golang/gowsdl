@@ -43,6 +43,8 @@ func CollectInlineComplexTypes(schemas []*parser.XSDSchema) map[string]*InlineCo
 					MinOccurs:     el.MinOccurs,
 					MaxOccurs:     el.MaxOccurs,
 				}
+				// Also collect nested inline types within this element
+				collectFromComplexType(el.Name, el.ComplexType, inlineTypes)
 			}
 		}
 	}
