@@ -4,3 +4,8 @@ build
 .DS_Store
 dist
 .idea/
+
+# Test coverage files
+coverage.out
+coverage.html
+*.coverprofile

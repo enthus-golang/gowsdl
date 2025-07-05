@@ -83,13 +83,26 @@ func TestAttributeRef(t *testing.T) {
 	}
 
 	expected := `type ResponseStatus struct {
-	Status	[]struct {
-		Value	string  ` + "`" + `xml:",chardata" json:"-,"` + "`" + `
-
-		Code	string	` + "`" + `xml:"code,attr,omitempty" json:"code,omitempty"` + "`" + `
-	}	` + "`" + `xml:"status,omitempty" json:"status,omitempty"` + "`" + `
+	Status	[]ResponseStatusStatusType	` + "`" + `xml:"status,omitempty" json:"status,omitempty"` + "`" + `
 
 	ResponseCode	string	` + "`" + `xml:"responseCode,attr,omitempty" json:"responseCode,omitempty"` + "`" + `
+}`
+	actual = string(bytes.ReplaceAll([]byte(actual), []byte("\t"), []byte("  ")))
+	expected = string(bytes.ReplaceAll([]byte(expected), []byte("\t"), []byte("  ")))
+	if actual != expected {
+		t.Error("got \n" + actual + " want \n" + expected)
+	}
+
+	// Also check that the inline type is generated
+	actual, err = getTypeDeclaration(resp, "ResponseStatusStatusType")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected = `type ResponseStatusStatusType struct {
+	Value	string	` + "`" + `xml:",chardata" json:"-,"` + "`" + `
+
+	Code	string	` + "`" + `xml:"code,attr,omitempty" json:"code,omitempty"` + "`" + `
 }`
 	actual = string(bytes.ReplaceAll([]byte(actual), []byte("\t"), []byte("  ")))
 	expected = string(bytes.ReplaceAll([]byte(expected), []byte("\t"), []byte("  ")))

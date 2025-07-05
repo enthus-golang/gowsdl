@@ -25,17 +25,19 @@ func TestComplexTypeWithInlineSequence(t *testing.T) {
 		codeStr += string(content) + "\n"
 	}
 	
-	// Check that Person type has Address field with inline struct
+	// Check that Person type has Address field with named type
 	assert.Contains(t, codeStr, "type Person struct {")
-	assert.Contains(t, codeStr, "Address struct {")
+	assert.Contains(t, codeStr, "Address PersonAddressType")
 	
-	// Check that Address has the expected fields, not just Value
+	// Check that PersonAddressType has the expected fields, not just Value
+	assert.Contains(t, codeStr, "type PersonAddressType struct {")
 	assert.Contains(t, codeStr, "Street string")
 	assert.Contains(t, codeStr, "City string")
 	assert.Contains(t, codeStr, "ZipCode string")
 	
 	// Check Contact field too
-	assert.Contains(t, codeStr, "Contact struct {")
+	assert.Contains(t, codeStr, "Contact PersonContactType")
+	assert.Contains(t, codeStr, "type PersonContactType struct {")
 	assert.Contains(t, codeStr, "Phone string")
 	assert.Contains(t, codeStr, "Email string")
 	
@@ -111,18 +113,21 @@ func TestNestedComplexTypes(t *testing.T) {
 	// Check that Company type exists
 	assert.Contains(t, codeStr, "type Company struct {")
 	
-	// Check that Department is an inline struct
-	assert.Contains(t, codeStr, "Department struct {")
+	// Check that Department is now a named type
+	assert.Contains(t, codeStr, "Department CompanyDepartmentType")
+	assert.Contains(t, codeStr, "type CompanyDepartmentType struct {")
 	assert.Contains(t, codeStr, "DeptName string")
 	
-	// Check that Manager is a nested struct within Department
-	assert.Contains(t, codeStr, "Manager struct {")
+	// Check that Manager is a named type within Department
+	assert.Contains(t, codeStr, "Manager CompanyDepartmentTypeManagerType")
+	assert.Contains(t, codeStr, "type CompanyDepartmentTypeManagerType struct {")
 	assert.Contains(t, codeStr, "FirstName string")
 	assert.Contains(t, codeStr, "LastName string")
 	assert.Contains(t, codeStr, "Email string")
 	
-	// Check that Employees is an array of structs
-	assert.Contains(t, codeStr, "Employees []struct {")
+	// Check that Employees is an array of named types
+	assert.Contains(t, codeStr, "Employees []CompanyDepartmentTypeEmployeesType")
+	assert.Contains(t, codeStr, "type CompanyDepartmentTypeEmployeesType struct {")
 	assert.Contains(t, codeStr, "EmployeeId int32")
 	assert.Contains(t, codeStr, "Role string")
 	
