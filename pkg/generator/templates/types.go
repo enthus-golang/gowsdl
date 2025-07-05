@@ -349,6 +349,18 @@ const TypesTemplate = `
 			{{template "ComplexTypeInlineNamed" (dict "ParentTypeName" $inline.GeneratedName "ComplexType" $inline.ComplexType)}}
 		{{end}}
 	}
+	
+	{{/* Generate MarshalXML method to handle empty structs */}}
+	func (t {{$type}}) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+		// Check if all fields are at their zero value
+		if {{generateEmptyCheck $type $inline.ComplexType}} {
+			// Skip marshaling this empty struct
+			return nil
+		}
+		// Use type alias to avoid infinite recursion
+		type alias {{$type}}
+		return e.EncodeElement(alias(t), start)
+	}
 {{end}}
 
 {{range .Elements}}

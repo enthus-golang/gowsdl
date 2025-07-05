@@ -45,6 +45,7 @@ type OrderTypeShippingAddressType struct {
 2. **Easy to Use**: No need for complex type assertions or anonymous struct literals
 3. **Idiomatic Go**: Follows Go best practices for optional fields (using pointers)
 4. **Proper XML Omission**: Nil pointers are omitted from XML output
+5. **Empty Struct Handling**: Generated types include MarshalXML methods to prevent empty complex types from being marshaled
 
 ## Usage Example
 
@@ -92,3 +93,45 @@ This is a breaking change if you were:
 - Using type assertions with anonymous struct types
 
 To migrate, replace anonymous struct references with the generated named types.
+
+## Empty Struct Handling
+
+Starting from this version, all generated inline complex types include a custom `MarshalXML` method that checks if all fields are at their zero values. If so, the entire element is omitted from the XML output.
+
+This prevents issues with SOAP servers that cannot handle empty complex elements, such as:
+```xml
+<!-- This causes errors on some servers -->
+<Ansprechpartner>
+    <Telefon></Telefon>
+</Ansprechpartner>
+
+<!-- With MarshalXML, the entire element is omitted if empty -->
+```
+
+Example generated code:
+```go
+type ContactTypePhoneInfoType struct {
+    Phone  string `xml:"phone,omitempty"`
+    Mobile string `xml:"mobile,omitempty"`
+}
+
+func (t ContactTypePhoneInfoType) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+    // Check if all fields are at their zero value
+    if t.Phone == "" && t.Mobile == "" {
+        // Skip marshaling this empty struct
+        return nil
+    }
+    // Use type alias to avoid infinite recursion
+    type alias ContactTypePhoneInfoType
+    return e.EncodeElement(alias(t), start)
+}
+```
+
+This ensures that even if you create a pointer to an empty struct, it won't produce invalid XML:
+```go
+contact := ContactType{
+    Name: "John Doe",
+    PhoneInfo: &ContactTypePhoneInfoType{}, // Empty struct
+}
+// PhoneInfo will be completely omitted from XML output
+```

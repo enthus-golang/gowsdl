@@ -404,6 +404,102 @@ func (g *Generator) genTypes() ([]byte, error) {
 		return dict, nil
 	}
 	
+	// Add function to generate empty check code for a complex type
+	funcMap["generateEmptyCheck"] = func(typeName string, complexType *parser.XSDComplexType) string {
+		var checks []string
+		
+		// Helper to add field checks
+		addFieldChecks := func(elements []*parser.XSDElement) {
+			for _, el := range elements {
+				if el.ComplexType != nil {
+					// For nested complex types, just check if the pointer is nil
+					fieldName := utils.MakePublic(g.typeMapper.EscapeReservedWord(el.Name))
+					checks = append(checks, fmt.Sprintf("t.%s == nil", fieldName))
+				} else if el.Type != "" {
+					// For simple types, check zero value
+					fieldName := utils.MakePublic(g.typeMapper.EscapeReservedWord(el.Name))
+					goType := g.typeMapper.MapXSDTypeToGoType(el.Type, false)
+					
+					// Determine zero value check based on type
+					switch {
+					case strings.HasPrefix(goType, "[]"):
+						checks = append(checks, fmt.Sprintf("len(t.%s) == 0", fieldName))
+					case strings.HasPrefix(goType, "*"):
+						checks = append(checks, fmt.Sprintf("t.%s == nil", fieldName))
+					case goType == "string":
+						checks = append(checks, fmt.Sprintf("t.%s == \"\"", fieldName))
+					case goType == "bool":
+						checks = append(checks, fmt.Sprintf("!t.%s", fieldName))
+					case goType == "int", goType == "int32", goType == "int64", 
+					     goType == "float32", goType == "float64":
+						checks = append(checks, fmt.Sprintf("t.%s == 0", fieldName))
+					default:
+						// For custom types, check against zero value
+						checks = append(checks, fmt.Sprintf("t.%s == %s{}", fieldName, goType))
+					}
+				}
+			}
+		}
+		
+		// Check all possible element sources
+		if complexType.Sequence != nil {
+			addFieldChecks(complexType.Sequence)
+		}
+		if complexType.All != nil {
+			addFieldChecks(complexType.All)
+		}
+		if complexType.Choice != nil {
+			addFieldChecks(complexType.Choice)
+		}
+		if complexType.ComplexContent.Extension.Sequence != nil {
+			addFieldChecks(complexType.ComplexContent.Extension.Sequence)
+		}
+		
+		// For simple content, check the Value field
+		if complexType.SimpleContent.Extension.Base != "" {
+			goType := g.typeMapper.MapXSDTypeToGoType(complexType.SimpleContent.Extension.Base, false)
+			if goType == "string" {
+				checks = append(checks, "t.Value == \"\"")
+			} else {
+				checks = append(checks, "t.Value == 0")
+			}
+		}
+		
+		// Check attributes (they should also be empty for a truly empty struct)
+		addAttributeChecks := func(attributes []*parser.XSDAttribute) {
+			for _, attr := range attributes {
+				fieldName := utils.MakePublic(g.typeMapper.EscapeReservedWord(attr.Name))
+				goType := g.typeMapper.MapXSDTypeToGoType(attr.Type, false)
+				
+				switch goType {
+				case "string":
+					checks = append(checks, fmt.Sprintf("t.%s == \"\"", fieldName))
+				case "bool":
+					checks = append(checks, fmt.Sprintf("!t.%s", fieldName))
+				default:
+					checks = append(checks, fmt.Sprintf("t.%s == 0", fieldName))
+				}
+			}
+		}
+		
+		// Check attributes from various sources
+		if complexType.Attributes != nil {
+			addAttributeChecks(complexType.Attributes)
+		}
+		if complexType.ComplexContent.Extension.Attributes != nil {
+			addAttributeChecks(complexType.ComplexContent.Extension.Attributes)
+		}
+		if complexType.SimpleContent.Extension.Attributes != nil {
+			addAttributeChecks(complexType.SimpleContent.Extension.Attributes)
+		}
+		
+		if len(checks) == 0 {
+			return "false" // Type has no fields to check
+		}
+		
+		return strings.Join(checks, " && ")
+	}
+	
 	tmpl, err := template.New("types").Funcs(funcMap).Parse(templates.TypesTemplate)
 	if err != nil {
 		return nil, err
