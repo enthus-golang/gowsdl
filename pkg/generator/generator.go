@@ -323,6 +323,9 @@ func (g *Generator) genTypes() ([]byte, error) {
 		}
 	}
 	
+	// Collect inline complex types
+	inlineTypes := CollectInlineComplexTypes(schemas)
+	
 	// Add function to check if a type is complex
 	funcMap["isComplexType"] = func(typeName string) bool {
 		// Remove namespace prefix if present
@@ -330,6 +333,47 @@ func (g *Generator) genTypes() ([]byte, error) {
 			typeName = typeName[idx+1:]
 		}
 		return complexTypeMap[typeName]
+	}
+	
+	// Track current type being processed for nested inline types
+	currentTypeName := ""
+	
+	// Add function to get inline type name
+	funcMap["getInlineTypeName"] = func(parentName, elementName string) string {
+		// Use the current type name being processed if parentName is "$"
+		if parentName == "$" {
+			parentName = currentTypeName
+		}
+		if typeName, ok := FindInlineType(inlineTypes, parentName, elementName); ok {
+			return typeName
+		}
+		// Fallback to generating a name if not found
+		return utils.MakePublic(parentName) + utils.MakePublic(elementName) + "Type"
+	}
+	
+	// Add function to set current type name
+	funcMap["setCurrentType"] = func(typeName string) string {
+		currentTypeName = typeName
+		return ""
+	}
+	
+	// Add function to check if this should be an optional pointer
+	funcMap["isOptionalType"] = IsOptionalType
+	
+	// Add dict function for creating template data structures
+	funcMap["dict"] = func(values ...interface{}) (map[string]interface{}, error) {
+		if len(values)%2 != 0 {
+			return nil, fmt.Errorf("dict must have even number of arguments")
+		}
+		dict := make(map[string]interface{})
+		for i := 0; i < len(values); i += 2 {
+			key, ok := values[i].(string)
+			if !ok {
+				return nil, fmt.Errorf("dict keys must be strings")
+			}
+			dict[key] = values[i+1]
+		}
+		return dict, nil
 	}
 	
 	tmpl, err := template.New("types").Funcs(funcMap).Parse(templates.TypesTemplate)
@@ -346,6 +390,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 		Elements        []*parser.XSDElement
 		Schemas         []*parser.XSDSchema
 		Messages        []*parser.WSDLMessage
+		InlineTypes     map[string]*InlineComplexType
 		TargetNamespace string
 	}{}
 	
@@ -355,6 +400,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 	}
 	
 	data.Schemas = schemas
+	data.InlineTypes = inlineTypes
 	
 	// Merge all schemas and get first non-empty target namespace
 	for _, schema := range schemas {

@@ -59,11 +59,11 @@ func TestOptionalComplexPointerTypes(t *testing.T) {
 	// Create temp file
 	tmpFile, err := os.CreateTemp("", "test-wsdl-*.wsdl")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	_, err = tmpFile.Write([]byte(wsdl))
 	require.NoError(t, err)
-	tmpFile.Close()
+	require.NoError(t, tmpFile.Close())
 
 	g, err := New(tmpFile.Name())
 	require.NoError(t, err)
@@ -78,10 +78,10 @@ func TestOptionalComplexPointerTypes(t *testing.T) {
 		codeStr += string(content) + "\n"
 	}
 	
-	// Check that optional complex types use pointers
-	assert.Contains(t, codeStr, "ShippingAddress *struct {", "Optional complex type should be a pointer")
-	assert.Contains(t, codeStr, "BillingAddress struct {", "Required complex type should not be a pointer")
-	assert.Contains(t, codeStr, "Discount *struct {", "Optional simple content should be a pointer")
+	// Check that optional complex types use pointers to named types
+	assert.Contains(t, codeStr, "ShippingAddress *OrderTypeShippingAddressType", "Optional complex type should be a pointer to named type")
+	assert.Contains(t, codeStr, "BillingAddress OrderTypeBillingAddressType", "Required complex type should not be a pointer")
+	assert.Contains(t, codeStr, "Discount *OrderTypeDiscountType", "Optional simple content should be a pointer")
 }
 
 func TestOptionalComplexPointerMarshaling(t *testing.T) {
