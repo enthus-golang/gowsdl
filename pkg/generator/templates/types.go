@@ -369,6 +369,9 @@ const TypesTemplate = `
 				type {{$type}} struct {
 					{{if isElementFormQualified}}
 					XMLName xml.Name ` + "`" + `xml:"{{$.TargetNamespace}} {{.Name}}"` + "`" + `
+					{{else if isResponseElement .Name}}
+					{{/* Response elements use local name only to handle any namespace prefix */}}
+					XMLName xml.Name ` + "`" + `xml:"{{.Name}}"` + "`" + `
 					{{else}}
 					XMLName xml.Name ` + "`" + `xml:"tns:{{.Name}}"` + "`" + `
 					{{end}}
@@ -423,6 +426,9 @@ const TypesTemplate = `
 				type {{$outerType}} struct {
 					{{if isElementFormQualified}}
 					XMLName xml.Name ` + "`" + `xml:"{{$.TargetNamespace}} {{.Name}}"` + "`" + `
+					{{else if isResponseElement .Name}}
+					{{/* Response elements use local name only to handle any namespace prefix */}}
+					XMLName xml.Name ` + "`" + `xml:"{{.Name}}"` + "`" + `
 					{{else}}
 					XMLName xml.Name ` + "`" + `xml:"tns:{{.Name}}"` + "`" + `
 					{{end}}

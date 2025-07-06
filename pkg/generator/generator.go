@@ -326,6 +326,32 @@ func (g *Generator) genTypes() ([]byte, error) {
 	// Collect inline complex types
 	inlineTypes := CollectInlineComplexTypes(schemas)
 	
+	// Collect response element names from operations
+	responseElements := make(map[string]bool)
+	if g.wsdl != nil && g.wsdl.PortTypes != nil {
+		for _, portType := range g.wsdl.PortTypes {
+			for _, operation := range portType.Operations {
+				if operation.Output.Message != "" {
+					// Find the message and its parts
+					msgName := removeNamespacePrefix(operation.Output.Message)
+					for _, msg := range g.wsdl.Messages {
+						if msg.Name == msgName {
+							for _, part := range msg.Parts {
+								if part.Element != "" {
+									elementName := removeNamespacePrefix(part.Element)
+									responseElements[elementName] = true
+									// Debug log (commented out for production)
+									// fmt.Printf("Added response element: %s from operation %s\n", elementName, operation.Name)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	// TODO: Add WSDL 2.0 support if needed
+	
 	// Add function to check if a type is complex
 	funcMap["isComplexType"] = func(typeName string) bool {
 		// Remove namespace prefix if present
@@ -399,6 +425,15 @@ func (g *Generator) genTypes() ([]byte, error) {
 		// Default is unqualified
 		return false
 	}
+	
+	// Add function to check if an element is a response element
+	funcMap["isResponseElement"] = func(elementName string) bool {
+		result := responseElements[elementName]
+		// Debug log (commented out for production)
+		// fmt.Printf("isResponseElement(%s) = %v (map contains %d elements)\n", elementName, result, len(responseElements))
+		return result
+	}
+	
 	
 	// Add dict function for creating template data structures
 	funcMap["dict"] = func(values ...interface{}) (map[string]interface{}, error) {
