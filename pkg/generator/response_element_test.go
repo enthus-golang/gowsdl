@@ -232,3 +232,80 @@ func TestRequestTypesRetainNamespacePrefix(t *testing.T) {
 	assert.Contains(t, xmlStr, "<OrderID>12345</OrderID>")
 	assert.Contains(t, xmlStr, "</tns:GetOrder>")
 }
+
+// TestResponseElementNamespaceHandlingWSDL2 tests that WSDL 2.0 response elements are handled correctly
+func TestResponseElementNamespaceHandlingWSDL2(t *testing.T) {
+	// Test WSDL 2.0 with properly defined interfaces and operations
+	wsdl := `<?xml version="1.0" encoding="UTF-8"?>
+<description xmlns="http://www.w3.org/ns/wsdl/"
+             xmlns:tns="https://example.com/service"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:wsoap="http://www.w3.org/ns/wsdl/soap"
+             targetNamespace="https://example.com/service">
+    
+    <types>
+        <xsd:schema targetNamespace="https://example.com/service">
+            <xsd:element name="GetCustomer">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="CustomerID" type="xsd:string"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            
+            <xsd:element name="GetCustomerResponse">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="CustomerID" type="xsd:string"/>
+                        <xsd:element name="CustomerName" type="xsd:string"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </types>
+    
+    <interface name="CustomerInterface">
+        <operation name="GetCustomer" pattern="http://www.w3.org/ns/wsdl/in-out">
+            <input element="tns:GetCustomer"/>
+            <output element="tns:GetCustomerResponse"/>
+        </operation>
+    </interface>
+    
+    <binding name="CustomerBinding" interface="tns:CustomerInterface" type="http://www.w3.org/ns/wsdl/soap">
+        <operation ref="tns:GetCustomer" wsoap:soapAction="GetCustomer"/>
+    </binding>
+    
+    <service name="CustomerService" interface="tns:CustomerInterface">
+        <endpoint name="CustomerEndpoint" binding="tns:CustomerBinding" 
+                  address="http://example.com/customer"/>
+    </service>
+</description>`
+
+	file, err := os.CreateTemp("", "test-wsdl2-response-*.wsdl")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(file.Name()) }()
+	defer func() { _ = file.Close() }()
+	
+	_, err = file.WriteString(wsdl)
+	require.NoError(t, err)
+
+	g, err := New(file.Name(), WithPackage("service"))
+	require.NoError(t, err)
+
+	files, err := g.Generate(context.Background())
+	require.NoError(t, err)
+
+	types, ok := files["types"]
+	require.True(t, ok, "types file should be generated")
+	
+	typesStr := string(types)
+	t.Logf("Generated types:\n%s", typesStr)
+	
+	// Response elements should use local name only (no namespace prefix)
+	assert.True(t, strings.Contains(typesStr, `XMLName xml.Name `+"`"+`xml:"GetCustomerResponse"`+"`"), 
+		"GetCustomerResponse should use local name only")
+	
+	// Request elements should still use namespace prefix
+	assert.True(t, strings.Contains(typesStr, `XMLName xml.Name `+"`"+`xml:"tns:GetCustomer"`+"`"), 
+		"GetCustomer should use tns: prefix")
+}

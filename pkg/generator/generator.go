@@ -328,21 +328,27 @@ func (g *Generator) genTypes() ([]byte, error) {
 	
 	// Collect response element names from operations
 	responseElements := make(map[string]bool)
+	
+	// Handle WSDL 1.1
 	if g.wsdl != nil && g.wsdl.PortTypes != nil {
+		// Create a map of messages for efficient O(1) lookup
+		messageMap := make(map[string]*parser.WSDLMessage, len(g.wsdl.Messages))
+		for _, msg := range g.wsdl.Messages {
+			messageMap[msg.Name] = msg
+		}
+		
 		for _, portType := range g.wsdl.PortTypes {
 			for _, operation := range portType.Operations {
 				if operation.Output.Message != "" {
 					// Find the message and its parts
 					msgName := removeNamespacePrefix(operation.Output.Message)
-					for _, msg := range g.wsdl.Messages {
-						if msg.Name == msgName {
-							for _, part := range msg.Parts {
-								if part.Element != "" {
-									elementName := removeNamespacePrefix(part.Element)
-									responseElements[elementName] = true
-									// Debug log (commented out for production)
-									// fmt.Printf("Added response element: %s from operation %s\n", elementName, operation.Name)
-								}
+					if msg, ok := messageMap[msgName]; ok {
+						for _, part := range msg.Parts {
+							if part.Element != "" {
+								elementName := removeNamespacePrefix(part.Element)
+								responseElements[elementName] = true
+								// Debug log (commented out for production)
+								// fmt.Printf("Added response element: %s from operation %s\n", elementName, operation.Name)
 							}
 						}
 					}
@@ -350,7 +356,20 @@ func (g *Generator) genTypes() ([]byte, error) {
 			}
 		}
 	}
-	// TODO: Add WSDL 2.0 support if needed
+	
+	// Handle WSDL 2.0
+	if g.wsdl2 != nil && g.wsdl2.Interfaces != nil {
+		for _, iface := range g.wsdl2.Interfaces {
+			for _, operation := range iface.Operations {
+				if operation.Output != nil && operation.Output.Element != "" {
+					elementName := removeNamespacePrefix(operation.Output.Element)
+					responseElements[elementName] = true
+					// Debug log (commented out for production)
+					// fmt.Printf("Added WSDL2 response element: %s from operation %s\n", elementName, operation.Name)
+				}
+			}
+		}
+	}
 	
 	// Add function to check if a type is complex
 	funcMap["isComplexType"] = func(typeName string) bool {
