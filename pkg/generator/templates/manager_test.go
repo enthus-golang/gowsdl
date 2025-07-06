@@ -78,7 +78,12 @@ func TestManager_GetTypesTemplate(t *testing.T) {
 
 	// Test with a funcMap
 	funcMap := template.FuncMap{
-		"capitalize": strings.Title,
+		"capitalize": func(s string) string {
+			if len(s) == 0 {
+				return s
+			}
+			return strings.ToUpper(string(s[0])) + s[1:]
+		},
 	}
 	manager2 := NewManager(funcMap)
 	tmpl2, err := manager2.GetTypesTemplate()
@@ -126,7 +131,12 @@ func TestManager_TemplateExecution(t *testing.T) {
 			}
 			return s
 		},
-		"makePublic": strings.Title,
+		"makePublic": func(s string) string {
+			if len(s) == 0 {
+				return s
+			}
+			return strings.ToUpper(string(s[0])) + s[1:]
+		},
 		"makePrivate": strings.ToLower,
 		"stripNS": func(s string) string {
 			parts := strings.Split(s, " ")
