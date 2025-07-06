@@ -31,6 +31,9 @@ type SOAPEnvelopeResponse struct {
 type SOAPEnvelope struct {
 	XMLName xml.Name `xml:"soap:Envelope"`
 	XmlNS   string   `xml:"xmlns:soap,attr"`
+	// Additional namespace declarations
+	XMLNSXSI string `xml:"xmlns:xsi,attr,omitempty"`
+	XMLNSXSD string `xml:"xmlns:xsd,attr,omitempty"`
 
 	Header *SOAPHeader
 	Body   SOAPBody
@@ -429,18 +432,32 @@ func (s *Client) CallWithFaultDetail(soapAction string, request, response interf
 
 func (s *Client) call(ctx context.Context, soapAction string, request, response interface{}, faultDetail FaultError,
 	retAttachments *[]MIMEMultipartAttachment) error {
-	// SOAP envelope capable of namespace prefixes
-	envelope := SOAPEnvelope{
-		XmlNS: XmlNsSoapEnv,
+	var envelope interface{}
+
+	// Try to extract namespace from request to determine which envelope to use
+	targetNamespace := ""
+	if req, ok := request.(interface{ TargetNamespace() string }); ok {
+		targetNamespace = req.TargetNamespace()
 	}
 
-	if len(s.headers) > 0 {
-		envelope.Header = &SOAPHeader{
-			Headers: s.headers,
+	if targetNamespace != "" {
+		// Use enhanced envelope with namespace declarations
+		enhancedEnv := NewEnhancedSOAPEnvelope(targetNamespace)
+		if len(s.headers) > 0 {
+			enhancedEnv.Header = &SOAPHeader{Headers: s.headers}
 		}
+		enhancedEnv.Body.Content = request
+		envelope = enhancedEnv
+	} else {
+		// Use standard envelope (backward compatibility)
+		standardEnv := &SOAPEnvelope{XmlNS: XmlNsSoapEnv}
+		if len(s.headers) > 0 {
+			standardEnv.Header = &SOAPHeader{Headers: s.headers}
+		}
+		standardEnv.Body.Content = request
+		envelope = standardEnv
 	}
 
-	envelope.Body.Content = request
 	buffer := new(bytes.Buffer)
 	var encoder SOAPEncoder
 	if s.opts.mtom && s.opts.mma {

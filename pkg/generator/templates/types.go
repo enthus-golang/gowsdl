@@ -367,9 +367,19 @@ const TypesTemplate = `
 			{{/* For complex types, use the public version of the type name */}}
 			{{if isComplexType .Type}}
 				type {{$type}} struct {
+					{{if isElementFormQualified}}
 					XMLName xml.Name ` + "`" + `xml:"{{$.TargetNamespace}} {{.Name}}"` + "`" + `
+					{{else}}
+					XMLName xml.Name ` + "`" + `xml:"tns:{{.Name}}"` + "`" + `
+					{{end}}
 					{{$goPublicType}}
 				}
+				
+				{{if not isElementFormQualified}}
+				func (t {{$type}}) TargetNamespace() string {
+					return "{{$.TargetNamespace}}"
+				}
+				{{end}}
 			{{else}}
 				type {{$type}} {{$goType}}
 			{{end}}
@@ -411,9 +421,19 @@ const TypesTemplate = `
 				{{template "ComplexType" .ComplexType}}
 			{{else}}
 				type {{$outerType}} struct {
+					{{if isElementFormQualified}}
 					XMLName xml.Name ` + "`" + `xml:"{{$.TargetNamespace}} {{.Name}}"` + "`" + `
+					{{else}}
+					XMLName xml.Name ` + "`" + `xml:"tns:{{.Name}}"` + "`" + `
+					{{end}}
 					{{template "ComplexTypeInline" .ComplexType}}
 				}
+				
+				{{if not isElementFormQualified}}
+				func (t {{$outerType}}) TargetNamespace() string {
+					return "{{$.TargetNamespace}}"
+				}
+				{{end}}
 			{{end}}
 		{{else}}
 			{{if .SimpleType}}

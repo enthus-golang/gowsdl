@@ -388,6 +388,18 @@ func (g *Generator) genTypes() ([]byte, error) {
 	// Add function to check if this should be an optional pointer
 	funcMap["isOptionalType"] = IsOptionalType
 	
+	// Add function to check if elements should be qualified
+	funcMap["isElementFormQualified"] = func() bool {
+		// Check if any schema has elementFormDefault="qualified"
+		for _, schema := range schemas {
+			if schema.ElementFormDefault == "qualified" {
+				return true
+			}
+		}
+		// Default is unqualified
+		return false
+	}
+	
 	// Add dict function for creating template data structures
 	funcMap["dict"] = func(values ...interface{}) (map[string]interface{}, error) {
 		if len(values)%2 != 0 {
