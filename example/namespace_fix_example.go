@@ -16,7 +16,7 @@ import (
 // DemonstrateNamespaceFix demonstrates the fix for namespace handling when elementFormDefault is unqualified
 func DemonstrateNamespaceFix() {
 	// Create SOAP client
-	client := soap.NewClient("https://example.com/soap/service")
+	_ = soap.NewClient("https://example.com/soap/service")
 	
 	// Create service from generated code
 	// service := generated.NewGeneralOvernightService(client)
