@@ -1,19 +1,20 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 // Example showing how to use gowsdl with unqualified schema elements
-package main
+package example
 
 import (
-	"context"
 	"fmt"
-	"log"
 	
 	// Import your generated package
 	// "your-module/generated"
 	"github.com/enthus-golang/gowsdl/soap"
 )
 
-// This example demonstrates the fix for namespace handling when elementFormDefault is unqualified
-
-func main() {
+// DemonstrateNamespaceFix demonstrates the fix for namespace handling when elementFormDefault is unqualified
+func DemonstrateNamespaceFix() {
 	// Create SOAP client
 	client := soap.NewClient("https://example.com/soap/service")
 	

@@ -32,8 +32,8 @@ type SOAPEnvelope struct {
 	XMLName xml.Name `xml:"soap:Envelope"`
 	XmlNS   string   `xml:"xmlns:soap,attr"`
 	// Additional namespace declarations
-	XmlNSXSI string `xml:"xmlns:xsi,attr,omitempty"`
-	XmlNSXSD string `xml:"xmlns:xsd,attr,omitempty"`
+	XMLNSXSI string `xml:"xmlns:xsi,attr,omitempty"`
+	XMLNSXSD string `xml:"xmlns:xsd,attr,omitempty"`
 
 	Header *SOAPHeader
 	Body   SOAPBody
@@ -432,81 +432,50 @@ func (s *Client) CallWithFaultDetail(soapAction string, request, response interf
 
 func (s *Client) call(ctx context.Context, soapAction string, request, response interface{}, faultDetail FaultError,
 	retAttachments *[]MIMEMultipartAttachment) error {
-	// Check if we need to use enhanced envelope for namespace handling
-	var buffer *bytes.Buffer
-	
-	// Try to extract namespace from request
+	var envelope interface{}
+
+	// Try to extract namespace from request to determine which envelope to use
 	targetNamespace := ""
 	if req, ok := request.(interface{ TargetNamespace() string }); ok {
 		targetNamespace = req.TargetNamespace()
 	}
-	
+
 	if targetNamespace != "" {
 		// Use enhanced envelope with namespace declarations
 		enhancedEnv := NewEnhancedSOAPEnvelope(targetNamespace)
-		
 		if len(s.headers) > 0 {
-			enhancedEnv.Header = &SOAPHeader{
-				Headers: s.headers,
-			}
+			enhancedEnv.Header = &SOAPHeader{Headers: s.headers}
 		}
-		
-		// Wrap request for proper namespace handling
 		enhancedEnv.Body.Content = request
-		
-		// Encode enhanced envelope
-		buffer = new(bytes.Buffer)
-		var encoder SOAPEncoder
-		if s.opts.mtom && s.opts.mma {
-			return fmt.Errorf("cannot use MTOM (XOP) and MMA (MIME Multipart Attachments) option at the same time")
-		} else if s.opts.mtom {
-			encoder = newMtomEncoder(buffer)
-		} else if s.opts.mma {
-			encoder = newMmaEncoder(buffer, s.attachments)
-		} else {
-			encoder = xml.NewEncoder(buffer)
-		}
-		
-		if err := encoder.Encode(enhancedEnv); err != nil {
-			return err
-		}
-		
-		if err := encoder.Flush(); err != nil {
-			return err
-		}
+		envelope = enhancedEnv
 	} else {
 		// Use standard envelope (backward compatibility)
-		envelope := SOAPEnvelope{
-			XmlNS: XmlNsSoapEnv,
-		}
-
+		standardEnv := &SOAPEnvelope{XmlNS: XmlNsSoapEnv}
 		if len(s.headers) > 0 {
-			envelope.Header = &SOAPHeader{
-				Headers: s.headers,
-			}
+			standardEnv.Header = &SOAPHeader{Headers: s.headers}
 		}
+		standardEnv.Body.Content = request
+		envelope = standardEnv
+	}
 
-		envelope.Body.Content = request
-		
-		buffer = new(bytes.Buffer)
-		var encoder SOAPEncoder
-		if s.opts.mtom && s.opts.mma {
-			return fmt.Errorf("cannot use MTOM (XOP) and MMA (MIME Multipart Attachments) option at the same time")
-		} else if s.opts.mtom {
-			encoder = newMtomEncoder(buffer)
-		} else if s.opts.mma {
-			encoder = newMmaEncoder(buffer, s.attachments)
-		} else {
-			encoder = xml.NewEncoder(buffer)
-		}
+	buffer := new(bytes.Buffer)
+	var encoder SOAPEncoder
+	if s.opts.mtom && s.opts.mma {
+		return fmt.Errorf("cannot use MTOM (XOP) and MMA (MIME Multipart Attachments) option at the same time")
+	} else if s.opts.mtom {
+		encoder = newMtomEncoder(buffer)
+	} else if s.opts.mma {
+		encoder = newMmaEncoder(buffer, s.attachments)
+	} else {
+		encoder = xml.NewEncoder(buffer)
+	}
 
-		if err := encoder.Encode(envelope); err != nil {
-			return err
-		}
+	if err := encoder.Encode(envelope); err != nil {
+		return err
+	}
 
-		if err := encoder.Flush(); err != nil {
-			return err
-		}
+	if err := encoder.Flush(); err != nil {
+		return err
 	}
 
 	req, err := http.NewRequest("POST", s.url, buffer)

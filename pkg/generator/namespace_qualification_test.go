@@ -137,7 +137,7 @@ func main() {
 	
 	_, err = testFile.WriteString(testCode)
 	require.NoError(t, err)
-	testFile.Close()
+	require.NoError(t, testFile.Close())
 	
 	// The key assertion: child elements should NOT have namespace prefix
 	// When elementFormDefault is unqualified, only the root element should be qualified
