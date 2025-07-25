@@ -326,6 +326,51 @@ func (g *Generator) genTypes() ([]byte, error) {
 	// Collect inline complex types
 	inlineTypes := CollectInlineComplexTypes(schemas)
 	
+	// Collect response element names from operations
+	responseElements := make(map[string]bool)
+	
+	// Handle WSDL 1.1
+	if g.wsdl != nil && g.wsdl.PortTypes != nil {
+		// Create a map of messages for efficient O(1) lookup
+		messageMap := make(map[string]*parser.WSDLMessage, len(g.wsdl.Messages))
+		for _, msg := range g.wsdl.Messages {
+			messageMap[msg.Name] = msg
+		}
+		
+		for _, portType := range g.wsdl.PortTypes {
+			for _, operation := range portType.Operations {
+				if operation.Output.Message != "" {
+					// Find the message and its parts
+					msgName := removeNamespacePrefix(operation.Output.Message)
+					if msg, ok := messageMap[msgName]; ok {
+						for _, part := range msg.Parts {
+							if part.Element != "" {
+								elementName := removeNamespacePrefix(part.Element)
+								responseElements[elementName] = true
+								// Debug log (commented out for production)
+								// fmt.Printf("Added response element: %s from operation %s\n", elementName, operation.Name)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	// Handle WSDL 2.0
+	if g.wsdl2 != nil && g.wsdl2.Interfaces != nil {
+		for _, iface := range g.wsdl2.Interfaces {
+			for _, operation := range iface.Operations {
+				if operation.Output != nil && operation.Output.Element != "" {
+					elementName := removeNamespacePrefix(operation.Output.Element)
+					responseElements[elementName] = true
+					// Debug log (commented out for production)
+					// fmt.Printf("Added WSDL2 response element: %s from operation %s\n", elementName, operation.Name)
+				}
+			}
+		}
+	}
+	
 	// Add function to check if a type is complex
 	funcMap["isComplexType"] = func(typeName string) bool {
 		// Remove namespace prefix if present
@@ -399,6 +444,15 @@ func (g *Generator) genTypes() ([]byte, error) {
 		// Default is unqualified
 		return false
 	}
+	
+	// Add function to check if an element is a response element
+	funcMap["isResponseElement"] = func(elementName string) bool {
+		result := responseElements[elementName]
+		// Debug log (commented out for production)
+		// fmt.Printf("isResponseElement(%s) = %v (map contains %d elements)\n", elementName, result, len(responseElements))
+		return result
+	}
+	
 	
 	// Add dict function for creating template data structures
 	funcMap["dict"] = func(values ...interface{}) (map[string]interface{}, error) {
