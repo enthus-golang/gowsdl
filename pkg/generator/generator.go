@@ -635,6 +635,7 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"getTargetNamespace":      g.getTargetNamespace,
 		"isRPCStyleMessage":       g.isRPCStyleMessage,
 		"findNameByType":          g.findNameByType,
+		"isMessageElement":        g.isMessageElement,
 	}
 }
 
@@ -862,4 +863,35 @@ func (g *Generator) findNameByType(typeName string) string {
 	
 	// If no matching element found, return the original type name
 	return typeName
+}
+
+// isMessageElement checks if a complex type name corresponds to an element used in WSDL messages
+func (g *Generator) isMessageElement(typeName string) bool {
+	// Get messages based on WSDL version
+	var messages []*parser.WSDLMessage
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		// WSDL 2.0 doesn't use messages the same way, return false for now
+		return false
+	} else if g.wsdl != nil {
+		messages = g.wsdl.Messages
+	}
+	
+	// Check if any message part references an element with this type name
+	for _, message := range messages {
+		for _, part := range message.Parts {
+			if part.Element != "" {
+				// Extract element name from part.Element (remove namespace prefix)
+				elementName := part.Element
+				if idx := strings.LastIndex(elementName, ":"); idx >= 0 {
+					elementName = elementName[idx+1:]
+				}
+				// If element name matches the type name, this type is used as a message element
+				if elementName == typeName {
+					return true
+				}
+			}
+		}
+	}
+	
+	return false
 }

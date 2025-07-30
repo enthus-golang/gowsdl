@@ -299,6 +299,16 @@ const TypesTemplate = `
 		// {{$type}} is abstract
 	{{end}}
 	type {{$type}} struct {
+		{{if isMessageElement .Name}}
+			{{if isElementFormQualified}}
+			XMLName xml.Name ` + "`" + `xml:"{{getTargetNamespace}} {{.Name}}"` + "`" + `
+			{{else if isResponseElement .Name}}
+			{{/* Response elements use local name only to handle any namespace prefix */}}
+			XMLName xml.Name ` + "`" + `xml:"{{.Name}}"` + "`" + `
+			{{else}}
+			XMLName xml.Name ` + "`" + `xml:"tns:{{.Name}}"` + "`" + `
+			{{end}}
+		{{end}}
 		{{template "ComplexTypeInline" .}}
 		{{with .ComplexContent}}
 			{{if ne .Extension.Base ""}}
@@ -360,11 +370,8 @@ const TypesTemplate = `
 		{{/* Check if element name is different from the type name */}}
 		{{$createAlias := true}}
 		{{if eq .Name $baseType}}
-			{{/* For complex types, we still need XMLName even if names match */}}
-			{{if not (isComplexType .Type)}}
-				{{/* Don't create type alias if element name equals the type name for simple types */}}
-				{{$createAlias = false}}
-			{{end}}
+			{{/* Don't create type alias if element name equals the type name */}}
+			{{$createAlias = false}}
 		{{end}}
 		{{if $createAlias}}
 			{{/* For complex types, use the public version of the type name */}}
