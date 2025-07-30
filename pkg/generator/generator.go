@@ -634,6 +634,7 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"sanitizeEnumValue":       sanitizeEnumValue,
 		"getTargetNamespace":      g.getTargetNamespace,
 		"isRPCStyleMessage":       g.isRPCStyleMessage,
+		"findNameByType":          g.findNameByType,
 	}
 }
 
@@ -826,4 +827,39 @@ func (g *Generator) getTargetNamespace() string {
 		}
 	}
 	return ""
+}
+
+// findNameByType finds an XML element by its type name and returns the element's name
+// This is used to determine if XMLName should be generated for complex types
+func (g *Generator) findNameByType(typeName string) string {
+	// Remove namespace prefix from type name
+	if idx := strings.LastIndex(typeName, ":"); idx >= 0 {
+		typeName = typeName[idx+1:]
+	}
+	
+	// Get schemas based on WSDL version
+	var schemas []*parser.XSDSchema
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		schemas = g.wsdl2.Types.Schemas
+	} else if g.wsdl != nil {
+		schemas = g.wsdl.Types.Schemas
+	}
+	
+	// Search for an element that has this type
+	for _, schema := range schemas {
+		for _, elem := range schema.Elements {
+			elemType := elem.Type
+			// Remove namespace prefix from element type
+			if idx := strings.LastIndex(elemType, ":"); idx >= 0 {
+				elemType = elemType[idx+1:]
+			}
+			// If element type matches, return the element name
+			if elemType == typeName {
+				return elem.Name
+			}
+		}
+	}
+	
+	// If no matching element found, return the original type name
+	return typeName
 }

@@ -360,8 +360,11 @@ const TypesTemplate = `
 		{{/* Check if element name is different from the type name */}}
 		{{$createAlias := true}}
 		{{if eq .Name $baseType}}
-			{{/* Don't create type alias if element name equals the type name */}}
-			{{$createAlias = false}}
+			{{/* For complex types, we still need XMLName even if names match */}}
+			{{if not (isComplexType .Type)}}
+				{{/* Don't create type alias if element name equals the type name for simple types */}}
+				{{$createAlias = false}}
+			{{end}}
 		{{end}}
 		{{if $createAlias}}
 			{{/* For complex types, use the public version of the type name */}}
