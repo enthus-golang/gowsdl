@@ -639,22 +639,6 @@ func (g *Generator) createFuncMap() template.FuncMap {
 	}
 }
 
-// isRPCBinding checks if a binding uses RPC style
-func (g *Generator) isRPCBinding(bindingName string) bool {
-	if g.wsdl == nil {
-		return false
-	}
-	
-	// Find the binding by name
-	for _, binding := range g.wsdl.Binding {
-		if binding.Name == bindingName {
-			return binding.SOAPBinding.Style == "rpc"
-		}
-	}
-	
-	return false
-}
-
 // isRPCPortType checks if a port type is used in an RPC-style binding
 func (g *Generator) isRPCPortType(portTypeName string) bool {
 	if g.wsdl == nil {
