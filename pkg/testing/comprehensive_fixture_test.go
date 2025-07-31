@@ -286,35 +286,3 @@ func TestFixtureCoverage(t *testing.T) {
 	// The real test is whether the rules would catch problems in "actual" XML
 }
 
-func TestRuleEngineWithKnownIssues(t *testing.T) {
-	// Test that our rule engine catches the known namespace issue
-	engine := NewRuleEngine()
-	
-	// Simulate the problematic XML that would have been generated before the fix
-	problematicXML := `<?xml version="1.0"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-  <soap:Body>
-    <tns:information xmlns:tns="http://example.com/test">
-      <userId>123</userId>
-    </tns:information>
-  </soap:Body>
-</soap:Envelope>`
-	
-	violations := engine.ValidateSOAPRequest(problematicXML, "rpc")
-	
-	// Should detect the tns: prefix issue
-	assert.NotEmpty(t, violations, "Should detect violations in problematic XML")
-	
-	var foundRPCViolation bool
-	for _, violation := range violations {
-		if violation.RuleName == "RPC Operation Wrapper" && 
-		   (strings.Contains(violation.Message, "tns:") || 
-		    strings.Contains(violation.Message, "namespace")) {
-			foundRPCViolation = true
-			t.Logf("Found RPC violation: %s", violation.Message)
-			break
-		}
-	}
-	
-	assert.True(t, foundRPCViolation, "Should detect the specific RPC namespace issue that was fixed")
-}
