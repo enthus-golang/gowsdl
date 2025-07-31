@@ -53,7 +53,7 @@ type SOAPHeaderResponse struct {
 type SOAPBody struct {
 	XMLName xml.Name `xml:"soap:Body"`
 
-	Content interface{} `xml:",any,omitempty"`
+	Body interface{} `xml:",any,omitempty"`
 
 	// faultOccurred indicates whether the XML body included a fault;
 	// we cannot simply store SOAPFault as a pointer to indicate this, since
@@ -65,7 +65,7 @@ type SOAPBody struct {
 type SOAPBodyResponse struct {
 	XMLName xml.Name `xml:"Body"`
 
-	Content interface{} `xml:",omitempty"`
+	Body interface{} `xml:",omitempty"`
 
 	// faultOccurred indicates whether the XML body included a fault;
 	// we cannot simply store SOAPFault as a pointer to indicate this, since
@@ -81,8 +81,8 @@ type MIMEMultipartAttachment struct {
 
 // UnmarshalXML unmarshals SOAPBody xml
 func (b *SOAPBodyResponse) UnmarshalXML(d *xml.Decoder, _ xml.StartElement) error {
-	if b.Content == nil {
-		return xml.UnmarshalError("Content must be a pointer to a struct")
+	if b.Body == nil {
+		return xml.UnmarshalError("Body must be a pointer to a struct")
 	}
 
 	var (
@@ -106,7 +106,7 @@ Loop:
 			if consumed {
 				return xml.UnmarshalError("Found multiple elements inside SOAP body; not wrapped-document/literal WS-I compliant")
 			} else if se.Name.Space == "http://schemas.xmlsoap.org/soap/envelope/" && se.Name.Local == "Fault" {
-				b.Content = nil
+				b.Body = nil
 
 				b.faultOccurred = true
 				err = d.DecodeElement(b.Fault, &se)
@@ -116,7 +116,7 @@ Loop:
 
 				consumed = true
 			} else {
-				if err = d.DecodeElement(b.Content, &se); err != nil {
+				if err = d.DecodeElement(b.Body, &se); err != nil {
 					return err
 				}
 
@@ -446,7 +446,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 		if len(s.headers) > 0 {
 			enhancedEnv.Header = &SOAPHeader{Headers: s.headers}
 		}
-		enhancedEnv.Body.Content = request
+		enhancedEnv.Body.Body = request
 		envelope = enhancedEnv
 	} else {
 		// Use standard envelope (backward compatibility)
@@ -454,7 +454,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 		if len(s.headers) > 0 {
 			standardEnv.Header = &SOAPHeader{Headers: s.headers}
 		}
-		standardEnv.Body.Content = request
+		standardEnv.Body.Body = request
 		envelope = standardEnv
 	}
 
@@ -537,7 +537,7 @@ func (s *Client) call(ctx context.Context, soapAction string, request, response 
 	// so we have to use a namespace-less response envelope
 	respEnvelope := new(SOAPEnvelopeResponse)
 	respEnvelope.Body = SOAPBodyResponse{
-		Content: response,
+		Body: response,
 		Fault: &SOAPFault{
 			Detail: faultDetail,
 		},
