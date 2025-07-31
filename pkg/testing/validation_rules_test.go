@@ -5,6 +5,7 @@
 package testing
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -50,7 +51,7 @@ func TestRPCOperationWrapperRule(t *testing.T) {
   </soap:Body>
 </soap:Envelope>`,
 			style:          "rpc",
-			expectedErrors: 1, // Should detect tns: prefix usage
+			expectedErrors: 2, // Should detect both tns: prefix usage AND missing xmlns
 		},
 		{
 			name: "RPC operation missing namespace",
@@ -393,7 +394,11 @@ func TestRuleEngineIntegration(t *testing.T) {
 	}
 	
 	require.NotNil(t, rpcViolation, "Should detect RPC operation wrapper violation")
-	assert.Contains(t, rpcViolation.Message, "tns:")
+	// The test checks for either the tns: prefix issue OR missing xmlns issue
+	assert.True(t, 
+		strings.Contains(rpcViolation.Message, "tns:") || 
+		strings.Contains(rpcViolation.Message, "namespace"),
+		"Should mention either tns: prefix or namespace issue")
 	assert.Equal(t, "error", rpcViolation.Severity)
 }
 

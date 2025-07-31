@@ -7,6 +7,7 @@ package testing
 import (
 	"encoding/xml"
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -183,48 +184,29 @@ func (r *NamespaceConsistencyRule) Description() string {
 func (r *NamespaceConsistencyRule) Validate(soapXML string, style string) []RuleViolation {
 	var violations []RuleViolation
 	
-	// Parse XML to get namespace information
-	decoder := xml.NewDecoder(strings.NewReader(soapXML))
-	seenPrefixes := make(map[string]bool)
-	declaredPrefixes := make(map[string]bool)
+	// Simple check for undefined namespace prefixes using regex
+	// Look for patterns like "tns:something" without corresponding xmlns:tns declaration
 	
-	for {
-		token, err := decoder.Token()
-		if err != nil {
-			break // End of document or error
-		}
-		
-		switch elem := token.(type) {
-		case xml.StartElement:
-			// Check element name for prefix
-			if prefix := elem.Name.Space; prefix != "" {
-				seenPrefixes[prefix] = true
-			}
-			
-			// Check attributes for namespace declarations and prefixed names
-			for _, attr := range elem.Attr {
-				if attr.Name.Local == "xmlns" {
-					// Default namespace declaration
-					continue
-				}
-				if attr.Name.Space == "xmlns" {
-					// Prefixed namespace declaration
-					declaredPrefixes[attr.Name.Local] = true
-				} else if attr.Name.Space != "" {
-					// Prefixed attribute
-					seenPrefixes[attr.Name.Space] = true
-				}
+	// Extract all namespace prefix usages
+	prefixUsagePattern := regexp.MustCompile(`<(\w+):[\w-]+`)
+	prefixMatches := prefixUsagePattern.FindAllStringSubmatch(soapXML, -1)
+	
+	usedPrefixes := make(map[string]bool)
+	for _, match := range prefixMatches {
+		if len(match) > 1 {
+			prefix := match[1]
+			// Skip standard prefixes
+			if prefix != "soap" && prefix != "xml" && prefix != "xsi" && prefix != "xsd" {
+				usedPrefixes[prefix] = true
 			}
 		}
 	}
 	
-	// Check for undeclared prefixes
-	for prefix := range seenPrefixes {
-		if prefix == "soap" || prefix == "xml" {
-			continue // Standard prefixes
-		}
-		
-		if !declaredPrefixes[prefix] {
+	// Check if each used prefix is declared
+	for prefix := range usedPrefixes {
+		// Look for xmlns:prefix declaration
+		declPattern := regexp.MustCompile(`xmlns:` + prefix + `=`)
+		if !declPattern.MatchString(soapXML) {
 			violations = append(violations, RuleViolation{
 				RuleName:   r.Name(),
 				Severity:   "error",

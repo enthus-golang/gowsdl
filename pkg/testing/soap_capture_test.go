@@ -66,7 +66,7 @@ func TestSOAPCaptureRoundTrip(t *testing.T) {
 	require.NotNil(t, lastReq)
 	assert.Equal(t, "http://example.com/service", lastReq.URL)
 	assert.Equal(t, "text/xml; charset=utf-8", lastReq.Headers["Content-Type"])
-	assert.Equal(t, "getUser", lastReq.Headers["SOAPAction"])
+	assert.Equal(t, "getUser", lastReq.Headers["Soapaction"]) // HTTP headers are canonicalized by Go
 	assert.Contains(t, lastReq.Body, "getUser")
 	assert.NotNil(t, lastReq.XMLDoc)
 	assert.NotNil(t, lastReq.XMLDoc.Envelope)

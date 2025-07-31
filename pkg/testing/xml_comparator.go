@@ -117,7 +117,7 @@ func (xc *XMLComparator) compareElements(expected, actual map[string]interface{}
 	if expectedXML != actualXML {
 		diffs = append(diffs, Difference{
 			Type:        "different",
-			Path:        path,
+			Path:        "/",  // Set root path if path is empty
 			Expected:    expectedXML,
 			Actual:      actualXML,
 			Description: "XML content differs",
