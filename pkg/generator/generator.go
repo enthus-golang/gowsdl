@@ -474,6 +474,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 		Elements        []*parser.XSDElement
 		Schemas         []*parser.XSDSchema
 		Messages        []*parser.WSDLMessage
+		PortTypes       []*parser.WSDLPortType
 		InlineTypes     map[string]*InlineComplexType
 		TargetNamespace string
 	}{}
@@ -481,6 +482,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 	// Add RPC-style messages for WSDL 1.1
 	if g.wsdl != nil {
 		data.Messages = g.wsdl.Messages
+		data.PortTypes = g.wsdl.PortTypes
 	}
 	
 	data.Schemas = schemas
@@ -521,7 +523,14 @@ func (g *Generator) genOperations() ([]byte, error) {
 		data = g.wsdl2.Interfaces
 	} else if g.wsdl != nil {
 		tmplText = templates.OperationsWSDL1Template
-		data = g.wsdl.PortTypes
+		// Wrap data to include both PortTypes and Messages for RPC operations
+		data = struct {
+			PortTypes []*parser.WSDLPortType
+			Messages  []*parser.WSDLMessage
+		}{
+			PortTypes: g.wsdl.PortTypes,
+			Messages:  g.wsdl.Messages,
+		}
 	} else {
 		return []byte{}, nil
 	}
@@ -624,9 +633,49 @@ func (g *Generator) createFuncMap() template.FuncMap {
 		"sanitizeEnumValue":       sanitizeEnumValue,
 		"getTargetNamespace":      g.getTargetNamespace,
 		"isRPCStyleMessage":       g.isRPCStyleMessage,
+		"isRPCPortType":           g.isRPCPortType,
 		"findNameByType":          g.findNameByType,
 		"isMessageElement":        g.isMessageElement,
 	}
+}
+
+// isRPCBinding checks if a binding uses RPC style
+func (g *Generator) isRPCBinding(bindingName string) bool {
+	if g.wsdl == nil {
+		return false
+	}
+	
+	// Find the binding by name
+	for _, binding := range g.wsdl.Binding {
+		if binding.Name == bindingName {
+			return binding.SOAPBinding.Style == "rpc"
+		}
+	}
+	
+	return false
+}
+
+// isRPCPortType checks if a port type is used in an RPC-style binding
+func (g *Generator) isRPCPortType(portTypeName string) bool {
+	if g.wsdl == nil {
+		return false
+	}
+	
+	// Check all bindings to see if any RPC binding references this port type
+	for _, binding := range g.wsdl.Binding {
+		if binding.SOAPBinding.Style == "rpc" {
+			// Extract port type name from binding type
+			bindingType := binding.Type
+			if idx := strings.LastIndex(bindingType, ":"); idx != -1 {
+				bindingType = bindingType[idx+1:]
+			}
+			if bindingType == portTypeName {
+				return true
+			}
+		}
+	}
+	
+	return false
 }
 
 // Helper functions

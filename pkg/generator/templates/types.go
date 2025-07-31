@@ -506,6 +506,64 @@ const TypesTemplate = `
 	{{end}}
 {{end}}
 
+{{/* Generate RPC operation wrapper types */}}
+{{range .PortTypes}}
+	{{if isRPCPortType .Name}}
+		{{$portType := .}}
+		{{range .Operations}}
+			{{$opName := .Name}}
+			{{$inputMsgName := .Input.Message | removeNamespacePrefix}}
+			{{$outputMsgName := .Output.Message | removeNamespacePrefix}}
+			
+			{{/* Find the input message and create operation wrapper */}}
+			{{range $.Messages}}
+				{{if eq .Name $inputMsgName}}
+					// Operation wrapper for {{$opName | makePublic}}.
+					type Operation{{$opName | makePublic}}In struct {
+						{{range .Parts}}
+							{{$partName := .Name | replaceReservedWords | makePublic}}
+							{{if ne .Type ""}}
+								{{$partType := .Type | removeNamespacePrefix}}
+								{{$partName}} *{{toGoType $partType false | removePointerFromType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+							{{else if ne .Element ""}}
+								{{$elementType := .Element | removeNamespacePrefix}}
+								{{$partName}} *{{toGoType $elementType false | removePointerFromType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+							{{end}}
+						{{end}}
+					}
+				{{end}}
+			{{end}}
+			
+			{{/* Find the output message and create operation response wrapper */}}
+			{{range $.Messages}}
+				{{if eq .Name $outputMsgName}}
+					// Operation wrapper for {{$opName | makePublic}}.
+					type Operation{{$opName | makePublic}}Out struct {
+						{{range .Parts}}
+							{{$partName := .Name | replaceReservedWords | makePublic}}
+							{{if ne .Type ""}}
+								{{$partType := .Type | removeNamespacePrefix}}
+								{{if eq .Name "return"}}
+									Return *{{toGoType $partType false | removePointerFromType}} ` + "`" + `xml:"return,omitempty" json:"return,omitempty"` + "`" + `
+								{{else}}
+									{{$partName}} *{{toGoType $partType false | removePointerFromType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{else if ne .Element ""}}
+								{{$elementType := .Element | removeNamespacePrefix}}
+								{{if eq .Name "return"}}
+									Return *{{toGoType $elementType false | removePointerFromType}} ` + "`" + `xml:"return,omitempty" json:"return,omitempty"` + "`" + `
+								{{else}}
+									{{$partName}} *{{toGoType $elementType false | removePointerFromType}} ` + "`" + `xml:"{{.Name}},omitempty" json:"{{.Name}},omitempty"` + "`" + `
+								{{end}}
+							{{end}}
+						{{end}}
+					}
+				{{end}}
+			{{end}}
+		{{end}}
+	{{end}}
+{{end}}
+
 {{define "Elements"}}
 	{{range .}}
 		{{if ne .Ref ""}}

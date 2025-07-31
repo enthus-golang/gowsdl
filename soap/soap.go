@@ -53,7 +53,7 @@ type SOAPHeaderResponse struct {
 type SOAPBody struct {
 	XMLName xml.Name `xml:"soap:Body"`
 
-	Content interface{} `xml:",omitempty"`
+	Content interface{} `xml:",any,omitempty"`
 
 	// faultOccurred indicates whether the XML body included a fault;
 	// we cannot simply store SOAPFault as a pointer to indicate this, since

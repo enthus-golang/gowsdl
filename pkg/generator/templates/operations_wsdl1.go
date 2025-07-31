@@ -6,7 +6,7 @@ package templates
 
 // OperationsWSDL1Template is the template for WSDL 1.1 operations
 const OperationsWSDL1Template = `
-{{range .}}
+{{range .PortTypes}}
 	{{$portType := .Name | makePublic}}
 
 	type {{$portType}} interface {
@@ -40,12 +40,80 @@ const OperationsWSDL1Template = `
 		{{$soapAction := findSOAPAction .Name $portType}}
 
 		func (service *{{$portType | makePrivate}}) {{.Name | makePublic}}(ctx context.Context, request *{{$requestType}}) (*{{$responseType}}, error) {
-			response := new({{$responseType}})
-			err := service.client.CallContext(ctx, "{{$soapAction}}", request, response)
-			if err != nil {
-				return nil, err
-			}
-			return response, nil
+			{{if isRPCPortType $portType}}
+				// RPC-style operation: wrap request in operation element
+				{{$opName := .Name}}
+				{{$inputMsgName := .Input.Message | removeNamespacePrefix}}
+				α := struct {
+					M Operation{{$opName | makePublic}}In ` + "`xml:\"tns:{{$opName}}\"`" + `
+				}{
+					Operation{{$opName | makePublic}}In{
+						{{/* Convert request fields to operation wrapper */}}
+						{{range $.Messages}}
+							{{if eq .Name $inputMsgName}}
+								{{range .Parts}}
+									{{.Name | replaceReservedWords | makePublic}}: &request.{{.Name | replaceReservedWords | makePublic}},
+								{{end}}
+							{{end}}
+						{{end}}
+					},
+				}
+				
+				γ := struct {
+					M Operation{{.Name | makePublic}}Out ` + "`xml:\"{{.Name}}Response\"`" + `
+				}{}
+				
+				err := service.client.CallContext(ctx, "{{$soapAction}}", α, &γ)
+				if err != nil {
+					return nil, err
+				}
+				
+				// Convert response wrapper to output type
+				{{$outputMsgName := .Output.Message | removeNamespacePrefix}}
+				{{range $.Messages}}
+					{{if eq .Name $outputMsgName}}
+						{{if eq (len .Parts) 1}}
+							{{range .Parts}}
+								{{$partName := .Name | replaceReservedWords | makePublic}}
+								{{if eq .Name "return"}}
+									if γ.M.Return == nil {
+										return nil, nil
+									}
+									result := &{{$responseType}}{
+										Result: *γ.M.Return,
+									}
+									return result, nil
+								{{else}}
+									if γ.M.{{$partName}} == nil {
+										return nil, nil
+									}
+									result := &{{$responseType}}{
+										{{$partName}}: *γ.M.{{$partName}},
+									}
+									return result, nil
+								{{end}}
+							{{end}}
+						{{else}}
+							// Multiple parts - need to handle each field
+							result := &{{$responseType}}{
+								{{range .Parts}}
+									{{$partName := .Name | replaceReservedWords | makePublic}}
+									{{$partName}}: γ.M.{{$partName}},
+								{{end}}
+							}
+							return result, nil
+						{{end}}
+					{{end}}
+				{{end}}
+			{{else}}
+				// Document-style operation
+				response := new({{$responseType}})
+				err := service.client.CallContext(ctx, "{{$soapAction}}", request, response)
+				if err != nil {
+					return nil, err
+				}
+				return response, nil
+			{{end}}
 		}
 	{{end}}
 {{end}}
