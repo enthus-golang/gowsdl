@@ -299,6 +299,16 @@ const TypesTemplate = `
 		// {{$type}} is abstract
 	{{end}}
 	type {{$type}} struct {
+		{{if isMessageElement .Name}}
+			{{if isElementFormQualified}}
+			XMLName xml.Name ` + "`" + `xml:"{{getTargetNamespace}} {{.Name}}"` + "`" + `
+			{{else if isResponseElement .Name}}
+			{{/* Response elements use local name only to handle any namespace prefix */}}
+			XMLName xml.Name ` + "`" + `xml:"{{.Name}}"` + "`" + `
+			{{else}}
+			XMLName xml.Name ` + "`" + `xml:"tns:{{.Name}}"` + "`" + `
+			{{end}}
+		{{end}}
 		{{template "ComplexTypeInline" .}}
 		{{with .ComplexContent}}
 			{{if ne .Extension.Base ""}}

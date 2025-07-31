@@ -14,8 +14,8 @@ import (
 	"context"
 	"encoding/xml"
 	"time"
-	"github.com/enthus-golang/gowsdl/soap"
 
+	"github.com/enthus-golang/gowsdl/soap"
 	{{/*range .Imports*/}}
 		{{/*.*/}}
 	{{/*end*/}}
