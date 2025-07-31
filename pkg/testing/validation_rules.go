@@ -7,7 +7,6 @@ package testing
 import (
 	"encoding/xml"
 	"fmt"
-	"regexp"
 	"strings"
 )
 
@@ -184,20 +183,48 @@ func (r *NamespaceConsistencyRule) Description() string {
 func (r *NamespaceConsistencyRule) Validate(soapXML string, style string) []RuleViolation {
 	var violations []RuleViolation
 	
-	// Check for undefined namespace prefixes
-	prefixRegex := regexp.MustCompile(`<(\w+):`)
-	prefixMatches := prefixRegex.FindAllStringSubmatch(soapXML, -1)
+	// Parse XML to get namespace information
+	decoder := xml.NewDecoder(strings.NewReader(soapXML))
+	seenPrefixes := make(map[string]bool)
+	declaredPrefixes := make(map[string]bool)
 	
-	for _, match := range prefixMatches {
-		prefix := match[1]
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			break // End of document or error
+		}
+		
+		switch elem := token.(type) {
+		case xml.StartElement:
+			// Check element name for prefix
+			if prefix := elem.Name.Space; prefix != "" {
+				seenPrefixes[prefix] = true
+			}
+			
+			// Check attributes for namespace declarations and prefixed names
+			for _, attr := range elem.Attr {
+				if attr.Name.Local == "xmlns" {
+					// Default namespace declaration
+					continue
+				}
+				if attr.Name.Space == "xmlns" {
+					// Prefixed namespace declaration
+					declaredPrefixes[attr.Name.Local] = true
+				} else if attr.Name.Space != "" {
+					// Prefixed attribute
+					seenPrefixes[attr.Name.Space] = true
+				}
+			}
+		}
+	}
+	
+	// Check for undeclared prefixes
+	for prefix := range seenPrefixes {
 		if prefix == "soap" || prefix == "xml" {
 			continue // Standard prefixes
 		}
 		
-		// Check if prefix is declared
-		declPattern := fmt.Sprintf(`xmlns:%s="[^"]*"`, prefix)
-		declRegex := regexp.MustCompile(declPattern)
-		if !declRegex.MatchString(soapXML) {
+		if !declaredPrefixes[prefix] {
 			violations = append(violations, RuleViolation{
 				RuleName:   r.Name(),
 				Severity:   "error",

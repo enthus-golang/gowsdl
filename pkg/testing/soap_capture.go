@@ -11,10 +11,12 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 )
 
 // SOAPCapture intercepts HTTP requests and captures SOAP XML for testing
 type SOAPCapture struct {
+	mu        sync.Mutex
 	Requests  []CapturedRequest
 	Responses []CapturedResponse
 }
@@ -91,7 +93,9 @@ func (sc *SOAPCapture) RoundTrip(req *http.Request) (*http.Response, error) {
 		req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 	}
 	
+	sc.mu.Lock()
 	sc.Requests = append(sc.Requests, captured)
+	sc.mu.Unlock()
 	
 	// Return mock response for testing
 	mockResponse := &http.Response{
@@ -119,6 +123,9 @@ func (sc *SOAPCapture) parseXML(xmlData string) (*XMLDocument, error) {
 
 // GetLastRequest returns the most recent captured request
 func (sc *SOAPCapture) GetLastRequest() *CapturedRequest {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	
 	if len(sc.Requests) == 0 {
 		return nil
 	}
@@ -127,11 +134,15 @@ func (sc *SOAPCapture) GetLastRequest() *CapturedRequest {
 
 // GetRequestCount returns the number of captured requests
 func (sc *SOAPCapture) GetRequestCount() int {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
 	return len(sc.Requests)
 }
 
 // Reset clears all captured requests and responses
 func (sc *SOAPCapture) Reset() {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
 	sc.Requests = sc.Requests[:0]
 	sc.Responses = sc.Responses[:0]
 }

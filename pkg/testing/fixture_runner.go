@@ -206,8 +206,19 @@ func (fr *FixtureRunner) simulateSOAPRequest(fixture FixtureTestCase) string {
 	// Real implementation would use generated Go client code
 	
 	if fixture.Style == "rpc" {
-		// Simulate RPC-style request
-		operationName := fixture.TestData["operation"].(string)
+		// Simulate RPC-style request with safe type assertion
+		operationNameRaw, exists := fixture.TestData["operation"]
+		if !exists {
+			// Default operation name if not specified
+			operationNameRaw = "GetUserInfo"
+		}
+		
+		operationName, ok := operationNameRaw.(string)
+		if !ok {
+			// Fallback if not a string
+			operationName = "GetUserInfo"
+		}
+		
 		return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
