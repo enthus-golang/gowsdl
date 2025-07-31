@@ -333,6 +333,15 @@ const TypesTemplate = `
 			{{end}}
 		{{end}}
 	}
+	
+	{{if isMessageElement .Name}}
+		{{if not isElementFormQualified}}
+		// TargetNamespace returns the target namespace for SOAP envelope configuration
+		func (t {{$type}}) TargetNamespace() string {
+			return "{{getTargetNamespace}}"
+		}
+		{{end}}
+	{{end}}
 {{end}}
 
 {{range .SimpleType}}

@@ -120,12 +120,7 @@ func (g *Generator) Generate(ctx context.Context) (map[string][]byte, error) {
 	}
 
 	// Process WSDL nodes
-	var schemas []*parser.XSDSchema
-	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
-		schemas = g.wsdl2.Types.Schemas
-	} else if g.wsdl != nil {
-		schemas = g.wsdl.Types.Schemas
-	}
+	schemas := g.getSchemas()
 	
 	for _, schema := range schemas {
 		parser.NewTraverser(schema, schemas).Traverse()
@@ -308,12 +303,7 @@ func (g *Generator) genTypes() ([]byte, error) {
 	complexTypeMap := make(map[string]bool)
 	
 	// Collect all complex types first
-	var schemas []*parser.XSDSchema
-	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
-		schemas = g.wsdl2.Types.Schemas
-	} else if g.wsdl != nil {
-		schemas = g.wsdl.Types.Schemas
-	}
+	schemas := g.getSchemas()
 	
 	for _, schema := range schemas {
 		if schema.ComplexTypes != nil {
@@ -815,12 +805,7 @@ func (g *Generator) findSOAPAction(operation, portType string) string {
 
 func (g *Generator) getTargetNamespace() string {
 	// Get the target namespace from the first schema that has one
-	var schemas []*parser.XSDSchema
-	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
-		schemas = g.wsdl2.Types.Schemas
-	} else if g.wsdl != nil {
-		schemas = g.wsdl.Types.Schemas
-	}
+	schemas := g.getSchemas()
 	
 	for _, schema := range schemas {
 		if schema.TargetNamespace != "" {
@@ -830,30 +815,29 @@ func (g *Generator) getTargetNamespace() string {
 	return ""
 }
 
+// getSchemas returns the schemas based on the WSDL version
+func (g *Generator) getSchemas() []*parser.XSDSchema {
+	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
+		return g.wsdl2.Types.Schemas
+	} else if g.wsdl != nil {
+		return g.wsdl.Types.Schemas
+	}
+	return nil
+}
+
 // findNameByType finds an XML element by its type name and returns the element's name
 // This is used to determine if XMLName should be generated for complex types
 func (g *Generator) findNameByType(typeName string) string {
 	// Remove namespace prefix from type name
-	if idx := strings.LastIndex(typeName, ":"); idx >= 0 {
-		typeName = typeName[idx+1:]
-	}
+	typeName = removeNamespacePrefix(typeName)
 	
 	// Get schemas based on WSDL version
-	var schemas []*parser.XSDSchema
-	if g.wsdlVersion == "2.0" && g.wsdl2 != nil {
-		schemas = g.wsdl2.Types.Schemas
-	} else if g.wsdl != nil {
-		schemas = g.wsdl.Types.Schemas
-	}
+	schemas := g.getSchemas()
 	
 	// Search for an element that has this type
 	for _, schema := range schemas {
 		for _, elem := range schema.Elements {
-			elemType := elem.Type
-			// Remove namespace prefix from element type
-			if idx := strings.LastIndex(elemType, ":"); idx >= 0 {
-				elemType = elemType[idx+1:]
-			}
+			elemType := removeNamespacePrefix(elem.Type)
 			// If element type matches, return the element name
 			if elemType == typeName {
 				return elem.Name
