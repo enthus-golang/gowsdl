@@ -150,8 +150,10 @@ func TestTargetNamespaceMethodGeneration(t *testing.T) {
 			// Create a temporary file with the WSDL content
 			tempFile, err := os.CreateTemp("", "test-*.wsdl")
 			require.NoError(t, err)
-			defer os.Remove(tempFile.Name())
-			defer tempFile.Close()
+			defer func() {
+				_ = tempFile.Close()
+				_ = os.Remove(tempFile.Name())
+			}()
 			
 			_, err = tempFile.Write([]byte(tt.wsdl))
 			require.NoError(t, err)
@@ -228,8 +230,10 @@ func TestTargetNamespaceMethodForMessageElements(t *testing.T) {
 	// Create a temporary file with the WSDL content
 	tempFile, err := os.CreateTemp("", "test-*.wsdl")
 	require.NoError(t, err)
-	defer os.Remove(tempFile.Name())
-	defer tempFile.Close()
+	defer func() {
+		_ = tempFile.Close()
+		_ = os.Remove(tempFile.Name())
+	}()
 	
 	_, err = tempFile.Write([]byte(wsdl))
 	require.NoError(t, err)
@@ -320,8 +324,10 @@ func TestTargetNamespaceIntegrationWithSOAPClient(t *testing.T) {
 	// Create a temporary file with the WSDL content
 	tempFile, err := os.CreateTemp("", "test-*.wsdl")
 	require.NoError(t, err)
-	defer os.Remove(tempFile.Name())
-	defer tempFile.Close()
+	defer func() {
+		_ = tempFile.Close()
+		_ = os.Remove(tempFile.Name())
+	}()
 	
 	_, err = tempFile.Write([]byte(wsdl))
 	require.NoError(t, err)
@@ -393,8 +399,10 @@ func TestTargetNamespaceNotGeneratedForNonMessageTypes(t *testing.T) {
 	// Create a temporary file with the WSDL content
 	tempFile, err := os.CreateTemp("", "test-*.wsdl")
 	require.NoError(t, err)
-	defer os.Remove(tempFile.Name())
-	defer tempFile.Close()
+	defer func() {
+		_ = tempFile.Close()
+		_ = os.Remove(tempFile.Name())
+	}()
 	
 	_, err = tempFile.Write([]byte(wsdl))
 	require.NoError(t, err)
