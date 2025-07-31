@@ -44,24 +44,19 @@ const OperationsWSDL1Template = `
 				// RPC-style operation: wrap request in operation element
 				{{$opName := .Name}}
 				{{$inputMsgName := .Input.Message | removeNamespacePrefix}}
-				α := struct {
-					M Operation{{$opName | makePublic}}In ` + "`xml:\"tns:{{$opName}}\"`" + `
-				}{
-					Operation{{$opName | makePublic}}In{
-						{{/* Convert request fields to operation wrapper */}}
-						{{range $.Messages}}
-							{{if eq .Name $inputMsgName}}
-								{{range .Parts}}
-									{{.Name | replaceReservedWords | makePublic}}: &request.{{.Name | replaceReservedWords | makePublic}},
-								{{end}}
+				// Create operation wrapper directly
+				α := Operation{{$opName | makePublic}}In{
+					{{/* Convert request fields to operation wrapper */}}
+					{{range $.Messages}}
+						{{if eq .Name $inputMsgName}}
+							{{range .Parts}}
+								{{.Name | replaceReservedWords | makePublic}}: &request.{{.Name | replaceReservedWords | makePublic}},
 							{{end}}
 						{{end}}
-					},
+					{{end}}
 				}
 				
-				γ := struct {
-					M Operation{{.Name | makePublic}}Out ` + "`xml:\"{{.Name}}Response\"`" + `
-				}{}
+				var γ Operation{{.Name | makePublic}}Out
 				
 				err := service.client.CallContext(ctx, "{{$soapAction}}", α, &γ)
 				if err != nil {
@@ -76,19 +71,19 @@ const OperationsWSDL1Template = `
 							{{range .Parts}}
 								{{$partName := .Name | replaceReservedWords | makePublic}}
 								{{if eq .Name "return"}}
-									if γ.M.Return == nil {
+									if γ.Return == nil {
 										return nil, nil
 									}
 									result := &{{$responseType}}{
-										Result: *γ.M.Return,
+										Result: *γ.Return,
 									}
 									return result, nil
 								{{else}}
-									if γ.M.{{$partName}} == nil {
+									if γ.{{$partName}} == nil {
 										return nil, nil
 									}
 									result := &{{$responseType}}{
-										{{$partName}}: *γ.M.{{$partName}},
+										{{$partName}}: *γ.{{$partName}},
 									}
 									return result, nil
 								{{end}}
@@ -98,7 +93,7 @@ const OperationsWSDL1Template = `
 							result := &{{$responseType}}{
 								{{range .Parts}}
 									{{$partName := .Name | replaceReservedWords | makePublic}}
-									{{$partName}}: γ.M.{{$partName}},
+									{{$partName}}: γ.{{$partName}},
 								{{end}}
 							}
 							return result, nil
