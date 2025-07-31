@@ -73,6 +73,25 @@ func (xc *XMLComparator) Compare(expected, actual string) (*ComparisonResult, er
 	
 	// Compare documents
 	diffs := xc.compareElements(expectedDoc, actualDoc, "")
+	
+	// If no semantic differences found but not ignoring whitespace, check whitespace
+	// However, don't do whitespace check if we're ignoring namespaces or order,
+	// as those features should take precedence
+	if len(diffs) == 0 && !xc.IgnoreWhitespace && !xc.IgnoreNamespaces && !xc.IgnoreOrder {
+		// Check if the original strings differ in whitespace
+		expectedTrimmed := strings.TrimSpace(expected)
+		actualTrimmed := strings.TrimSpace(actual)
+		if expectedTrimmed != actualTrimmed {
+			diffs = append(diffs, Difference{
+				Type:        "different",
+				Path:        "/",
+				Expected:    expected,
+				Actual:      actual,
+				Description: "XML content differs including whitespace",
+			})
+		}
+	}
+	
 	result.Differences = diffs
 	result.Equal = len(diffs) == 0
 	
@@ -470,7 +489,9 @@ func (xc *XMLComparator) compareChildrenUnordered(expected, actual []*XMLNode, p
 				Description: "Different number of child elements",
 			})
 		} else {
-			// Compare each occurrence
+			// When ignoring order, we still need to compare node content, but we can match
+			// them in the best way possible. For now, we'll do a simple 1:1 mapping.
+			// In a more sophisticated implementation, we could do optimal matching.
 			for i, expectedNode := range expectedNodes {
 				childPath := fmt.Sprintf("%s/%s[%d]", path, key, i+1)
 				childDiffs := xc.compareNodes(expectedNode, actualNodes[i], childPath)
