@@ -164,9 +164,10 @@ func TestComplexTypeHandling(t *testing.T) {
 	var complexRPC, complexDocument *FixtureTestCase
 	
 	for i, fixture := range fixtures {
-		if fixture.Name == "complex_rpc" {
+		switch fixture.Name {
+		case "complex_rpc":
 			complexRPC = &fixtures[i]
-		} else if fixture.Name == "complex_document" {
+		case "complex_document":
 			complexDocument = &fixtures[i]
 		}
 	}

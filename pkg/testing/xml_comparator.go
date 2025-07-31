@@ -8,7 +8,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"regexp"
-	"sort"
 	"strings"
 )
 
@@ -83,9 +82,12 @@ func (xc *XMLComparator) Compare(expected, actual string) (*ComparisonResult, er
 // normalizeXML normalizes XML for comparison
 func (xc *XMLComparator) normalizeXML(xmlStr string) (string, error) {
 	if xc.IgnoreWhitespace {
-		// Remove extra whitespace between elements
+		// Remove extra whitespace between elements and compact everything
 		re := regexp.MustCompile(`>\s+<`)
 		xmlStr = re.ReplaceAllString(xmlStr, "><")
+		// Also remove newlines and trim spaces
+		xmlStr = strings.ReplaceAll(xmlStr, "\n", "")
+		xmlStr = strings.ReplaceAll(xmlStr, "\r", "")
 		xmlStr = strings.TrimSpace(xmlStr)
 	}
 	
@@ -142,13 +144,8 @@ func (xc *XMLComparator) parseNode(decoder *xml.Decoder, parent *XMLNode) (*XMLN
 				Namespaces: make(map[string]string),
 			}
 			
-			// Copy attributes
+			// Copy attributes (don't sort to preserve order)
 			copy(node.Attrs, t.Attr)
-			
-			// Sort attributes for consistent comparison
-			sort.Slice(node.Attrs, func(i, j int) bool {
-				return node.Attrs[i].Name.Local < node.Attrs[j].Name.Local
-			})
 			
 			// Parse child nodes
 			child, err := xc.parseNode(decoder, node)
@@ -230,9 +227,14 @@ func (xc *XMLComparator) compareNodes(expected, actual *XMLNode, path string) []
 	
 	// Compare text content
 	if strings.TrimSpace(expected.Content) != strings.TrimSpace(actual.Content) {
+		// Use element name in path for better debugging
+		textPath := path + "/" + expected.Name.Local + "/text()"
+		if path == "soap:Body" {
+			textPath = path + "/" + expected.Name.Local + "/text()"
+		}
 		diffs = append(diffs, Difference{
 			Type:        "different",
-			Path:        path + "/text()",
+			Path:        textPath,
 			Expected:    strings.TrimSpace(expected.Content),
 			Actual:      strings.TrimSpace(actual.Content),
 			Description: "Text content differs",
@@ -262,26 +264,68 @@ func (xc *XMLComparator) formatElementName(name xml.Name) string {
 	return name.Local
 }
 
+// formatAttributeName formats attribute name for comparison considering namespace settings
+func (xc *XMLComparator) formatAttributeName(name xml.Name) string {
+	if xc.IgnoreNamespaces {
+		return name.Local
+	}
+	if name.Space != "" {
+		return fmt.Sprintf("{%s}%s", name.Space, name.Local)
+	}
+	return name.Local
+}
+
 // compareAttributes compares attribute lists
 func (xc *XMLComparator) compareAttributes(expected, actual []xml.Attr, path string) []Difference {
 	var diffs []Difference
 	
-	// Create maps for easier comparison
+	// If IgnoreOrder is false, compare order as well
+	if !xc.IgnoreOrder {
+		// Check if attribute order is different
+		if len(expected) == len(actual) {
+			orderDifferent := false
+			for i, expectedAttr := range expected {
+				if i < len(actual) {
+					actualAttr := actual[i]
+					if xc.formatAttributeName(expectedAttr.Name) != xc.formatAttributeName(actualAttr.Name) {
+						orderDifferent = true
+						break
+					}
+				}
+			}
+			if orderDifferent {
+				diffs = append(diffs, Difference{
+					Type:        "different",
+					Path:        path + "/@order",
+					Expected:    "attribute order preserved",
+					Actual:      "attribute order changed",
+					Description: "Attribute order differs",
+				})
+			}
+		}
+	}
+	
+	// Create maps for value comparison
 	expectedAttrs := make(map[string]string)
 	actualAttrs := make(map[string]string)
 	
 	for _, attr := range expected {
-		key := xc.formatElementName(attr.Name)
+		key := xc.formatAttributeName(attr.Name)
 		expectedAttrs[key] = attr.Value
 	}
 	
 	for _, attr := range actual {
-		key := xc.formatElementName(attr.Name)
+		key := xc.formatAttributeName(attr.Name)
 		actualAttrs[key] = attr.Value
 	}
 	
 	// Check for missing attributes
 	for key, value := range expectedAttrs {
+		// Skip namespace declarations if ignoring namespaces
+		if xc.IgnoreNamespaces && (key == "xmlns" || strings.HasPrefix(key, "xmlns:")) {
+			continue
+		}
+		
 		if actualValue, exists := actualAttrs[key]; !exists {
 			diffs = append(diffs, Difference{
 				Type:        "missing",
@@ -303,6 +347,11 @@ func (xc *XMLComparator) compareAttributes(expected, actual []xml.Attr, path str
 	
 	// Check for extra attributes
 	for key, value := range actualAttrs {
+		// Skip namespace declarations if ignoring namespaces
+		if xc.IgnoreNamespaces && (key == "xmlns" || strings.HasPrefix(key, "xmlns:")) {
+			continue
+		}
+		
 		if _, exists := expectedAttrs[key]; !exists {
 			diffs = append(diffs, Difference{
 				Type:        "extra",
@@ -342,7 +391,16 @@ func (xc *XMLComparator) compareChildrenOrdered(expected, actual []*XMLNode, pat
 	}
 	
 	for i := 0; i < maxLen; i++ {
-		childPath := fmt.Sprintf("%s[%d]", path, i+1)
+		var childPath string
+		
+		if i < len(expected) {
+			// Use element name in path for better debugging
+			childPath = path + "/" + expected[i].Name.Local
+		} else if i < len(actual) {
+			childPath = path + "/" + actual[i].Name.Local
+		} else {
+			childPath = fmt.Sprintf("%s[%d]", path, i+1) // fallback
+		}
 		
 		if i >= len(expected) {
 			// Extra child in actual
@@ -426,13 +484,12 @@ func (xc *XMLComparator) compareChildrenUnordered(expected, actual []*XMLNode, p
 
 // CompareSOAPRequests compares two SOAP request XMLs with SOAP-specific rules
 func (xc *XMLComparator) CompareSOAPRequests(expected, actual string) (*ComparisonResult, error) {
-	// First do standard XML comparison
-	result, err := xc.Compare(expected, actual)
-	if err != nil {
-		return nil, err
+	result := &ComparisonResult{
+		Equal:       true,
+		Differences: make([]Difference, 0),
 	}
 	
-	// Add SOAP-specific validations
+	// Parse SOAP envelopes
 	expectedEnv, err := xc.parseSOAPEnvelope(expected)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse expected SOAP envelope: %w", err)
@@ -443,10 +500,10 @@ func (xc *XMLComparator) CompareSOAPRequests(expected, actual string) (*Comparis
 		return nil, fmt.Errorf("failed to parse actual SOAP envelope: %w", err)
 	}
 	
-	// Check SOAP envelope structure
+	// Compare SOAP structure semantically - this gives us clean differences without duplicates
 	soapDiffs := xc.compareSOAPStructure(expectedEnv, actualEnv)
-	result.Differences = append(result.Differences, soapDiffs...)
-	result.Equal = result.Equal && len(soapDiffs) == 0
+	result.Differences = soapDiffs
+	result.Equal = len(soapDiffs) == 0
 	
 	return result, nil
 }
@@ -469,26 +526,30 @@ func (xc *XMLComparator) compareSOAPStructure(expected, actual *SOAPEnvelope) []
 	actualBody := strings.TrimSpace(string(actual.Body.Content))
 	
 	if expectedBody != "" && actualBody != "" {
-		// Wrap body content in a root element for proper XML parsing
-		expectedBodyXML := fmt.Sprintf("<root>%s</root>", expectedBody)
-		actualBodyXML := fmt.Sprintf("<root>%s</root>", actualBody)
-		
-		// Use semantic XML comparison for body content
-		result, err := xc.Compare(expectedBodyXML, actualBodyXML)
+		// Parse body content directly as XML nodes
+		expectedNode, err := xc.parseToXMLNode(expectedBody)
 		if err != nil {
 			diffs = append(diffs, Difference{
 				Type:        "error",
 				Path:        "soap:Body",
-				Description: fmt.Sprintf("Failed to parse SOAP body content: %v", err),
+				Description: fmt.Sprintf("Failed to parse expected SOAP body content: %v", err),
 			})
-		} else if !result.Equal {
-			// Remap differences to SOAP body context
-			for _, diff := range result.Differences {
-				bodyDiff := diff
-				bodyDiff.Path = "soap:Body" + strings.TrimPrefix(diff.Path, "/root")
-				diffs = append(diffs, bodyDiff)
-			}
+			return diffs
 		}
+		
+		actualNode, err := xc.parseToXMLNode(actualBody)
+		if err != nil {
+			diffs = append(diffs, Difference{
+				Type:        "error",
+				Path:        "soap:Body",
+				Description: fmt.Sprintf("Failed to parse actual SOAP body content: %v", err),
+			})
+			return diffs
+		}
+		
+		// Compare nodes and generate SOAP-specific paths only
+		bodyDiffs := xc.compareNodes(expectedNode, actualNode, "soap:Body")
+		diffs = append(diffs, bodyDiffs...)
 	} else if expectedBody != actualBody {
 		// Fallback to string comparison for empty or simple content
 		diffs = append(diffs, Difference{

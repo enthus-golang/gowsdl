@@ -284,7 +284,7 @@ func TestXMLComparatorSOAPComparison(t *testing.T) {
   </soap:Body>
 </soap:Envelope>`,
 			shouldEqual:  false,
-			expectedDiffs: 1,
+			expectedDiffs: 4, // Realistic: attribute order, missing xmlns, extra xmlns:tns, element name
 			description:  "Should detect the RPC namespace issue (tns: vs xmlns)",
 		},
 	}
@@ -354,11 +354,12 @@ func TestXMLComparatorComplexStructures(t *testing.T) {
 	
 	// Verify specific differences
 	var userIdDiff, formatDiff *Difference
-	for _, diff := range result.Differences {
+	for i := range result.Differences {
+		diff := &result.Differences[i] // Take address of slice element, not loop variable
 		if strings.Contains(diff.Path, "userId") {
-			userIdDiff = &diff
+			userIdDiff = diff
 		} else if strings.Contains(diff.Path, "format") {
-			formatDiff = &diff
+			formatDiff = diff
 		}
 	}
 	
