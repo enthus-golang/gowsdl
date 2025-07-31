@@ -31,7 +31,7 @@ func TestNewEnhancedSOAPEnvelope_Basic(t *testing.T) {
 
 func TestEnhancedSOAPEnvelope_Marshal(t *testing.T) {
 	env := NewEnhancedSOAPEnvelope("http://example.com/service")
-	env.Body.Content = "test content"
+	env.Body.Body = "test content"
 
 	data, err := xml.Marshal(env)
 	assert.NoError(t, err)
