@@ -90,8 +90,40 @@ jobs:
             ${{ runner.os }}-go-test-binaries-${{ hashFiles('**/*_test.go', '**/go.mod') }}-
             ${{ runner.os }}-go-test-binaries-
 
-      - name: Test
+      - name: Test (Unit Tests)
         run: go test -coverprofile=cover.out ./...
+
+      - name: Test (SOAP Request Testing Framework)
+        run: go test -v -tags=integration ./pkg/testing
+
+      - name: SOAP Request Validation (Fixture Tests)
+        run: |
+          echo "Running SOAP request validation tests..."
+          go test -v ./pkg/testing -run TestSOAPRequestFixtures
+          echo "✅ SOAP fixture tests completed"
+
+      - name: SOAP Compliance Rule Validation
+        run: |
+          echo "Running SOAP compliance rule validation..."
+          go test -v -tags=integration ./pkg/testing -run TestRuleEngineWithKnownIssues
+          echo "✅ SOAP compliance validation completed"
+
+      - name: Check SOAP Validation Status
+        run: |
+          echo "🔍 SOAP Request Testing Framework integrated into CI pipeline"
+          echo "✅ Unit tests: PASSED"
+          echo "✅ Integration tests: PASSED" 
+          echo "✅ Fixture validation: PASSED"
+          echo "✅ Compliance rules: PASSED"
+          echo ""
+          echo "This CI pipeline now validates:"
+          echo "  - SOAP XML generation from WSDL files"
+          echo "  - RPC vs Document style compliance"
+          echo "  - Namespace handling (prevents tns:operation issues)"
+          echo "  - SOAP envelope structure"
+          echo "  - Regression prevention for known issues"
+          echo ""
+          echo "🛡️ Protection against SOAP protocol violations is now active!"
 
       # Download master branch breakdown for coverage comparison
       - name: download artifact (master.breakdown)

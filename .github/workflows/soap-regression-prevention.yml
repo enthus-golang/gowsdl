@@ -1,0 +1,285 @@
+name: SOAP Regression Prevention
+
+# This workflow specifically prevents SOAP-related regressions
+# Triggers on changes to SOAP-sensitive code paths
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'pkg/generator/templates/**'  # Template changes affect XML generation
+      - 'pkg/generator/generator.go'  # Core generator logic
+      - 'soap/**'                     # SOAP package changes
+      - 'pkg/testing/**'              # Testing framework changes
+      - 'test_fixtures/**'            # New fixtures or changes
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'pkg/generator/templates/**'
+      - 'pkg/generator/generator.go'
+      - 'soap/**'
+      - 'pkg/testing/**'
+      - 'test_fixtures/**'
+      - '.github/workflows/soap-regression-prevention.yml'
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  detect-soap-changes:
+    name: Detect SOAP-Sensitive Changes
+    runs-on: ubuntu-latest
+    outputs:
+      templates-changed: ${{ steps.changes.outputs.templates }}
+      soap-changed: ${{ steps.changes.outputs.soap }}
+      generator-changed: ${{ steps.changes.outputs.generator }}
+      fixtures-changed: ${{ steps.changes.outputs.fixtures }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            templates:
+              - 'pkg/generator/templates/**'
+            soap:
+              - 'soap/**'
+            generator:
+              - 'pkg/generator/generator.go'
+              - 'pkg/generator/*_test.go'
+            fixtures:
+              - 'test_fixtures/**'
+
+  template-change-validation:
+    name: Template Change Validation
+    runs-on: ubuntu-latest
+    needs: detect-soap-changes
+    if: needs.detect-soap-changes.outputs.templates-changed == 'true'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+          cache: true
+
+      - name: Alert Template Changes
+        run: |
+          echo "⚠️  TEMPLATE CHANGES DETECTED"
+          echo "Templates affect XML generation - running comprehensive SOAP validation"
+          
+          # Show which templates changed
+          git diff --name-only HEAD~1 HEAD | grep "pkg/generator/templates/" || echo "No template files in diff"
+
+      - name: Validate Template Changes Don't Break SOAP
+        run: |
+          echo "🔍 Validating template changes don't break SOAP generation..."
+          
+          # Run all SOAP validation tests since templates affect XML output
+          go test -v -tags=integration ./pkg/testing
+          
+          echo "✅ Template changes validated - SOAP generation still works"
+
+      - name: Test Template Changes Against All Fixtures
+        run: |
+          echo "📋 Testing template changes against all fixtures..."
+          
+          # Generate code from all fixtures to ensure templates work
+          for wsdl in test_fixtures/*/*.wsdl; do
+            if [ -f "$wsdl" ]; then
+              echo "Testing template with: $wsdl"
+              go run ./cmd/gowsdl -o /tmp/test_output.go -p testpkg "$wsdl" || {
+                echo "❌ Template change broke WSDL: $wsdl"
+                exit 1
+              }
+            fi
+          done
+          
+          echo "✅ All fixtures work with template changes"
+
+  soap-package-validation:
+    name: SOAP Package Validation  
+    runs-on: ubuntu-latest
+    needs: detect-soap-changes
+    if: needs.detect-soap-changes.outputs.soap-changed == 'true'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+          cache: true
+
+      - name: Alert SOAP Package Changes
+        run: |
+          echo "⚠️  SOAP PACKAGE CHANGES DETECTED"
+          echo "Changes to soap/ package affect XML marshaling - running validation"
+
+      - name: Test SOAP Package Changes
+        run: |
+          echo "🧪 Testing SOAP package changes..."
+          
+          # Run SOAP package tests
+          go test -v ./soap/...
+          
+          # Run our SOAP validation framework to ensure marshaling still works
+          go test -v ./pkg/testing -run TestSOAPCapture
+          go test -v -tags=integration ./pkg/testing -run TestRuleEngineWithKnownIssues
+          
+          echo "✅ SOAP package changes validated"
+
+      - name: Test XML Marshaling Regression
+        run: |
+          echo "🔬 Testing for XML marshaling regressions..."
+          
+          # Test the specific XML marshaling that was problematic
+          go test -v -tags=integration ./pkg/testing -run TestFixtureValidationIntegration
+          
+          echo "✅ No XML marshaling regressions detected"
+
+  generator-core-validation:
+    name: Generator Core Validation
+    runs-on: ubuntu-latest  
+    needs: detect-soap-changes
+    if: needs.detect-soap-changes.outputs.generator-changed == 'true'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+          cache: true
+
+      - name: Alert Generator Changes
+        run: |
+          echo "⚠️  CORE GENERATOR CHANGES DETECTED"
+          echo "Changes to generator.go affect WSDL processing - running validation"
+
+      - name: Test Generator Changes
+        run: |
+          echo "🏗️ Testing generator core changes..."
+          
+          # Run generator tests
+          go test -v ./pkg/generator/...
+          
+          # Run RPC-specific tests since generator handles RPC detection
+          go test -v ./pkg/generator -run ".*[Rr][Pp][Cc].*"
+          
+          echo "✅ Generator changes validated"
+
+  comprehensive-regression-test:
+    name: Comprehensive Regression Test
+    runs-on: ubuntu-latest
+    needs: [detect-soap-changes, template-change-validation, soap-package-validation, generator-core-validation]
+    if: always() && (needs.detect-soap-changes.outputs.templates-changed == 'true' || needs.detect-soap-changes.outputs.soap-changed == 'true' || needs.detect-soap-changes.outputs.generator-changed == 'true')
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+          cache: true
+
+      - name: Run Comprehensive Regression Test
+        run: |
+          echo "🛡️ Running comprehensive SOAP regression prevention test..."
+          
+          # This test specifically validates against known issues
+          go test -v -tags=integration ./pkg/testing -run TestFixtureValidationIntegration
+          
+          # Run all validation rules to catch any new issues
+          go test -v -tags=integration ./pkg/testing -run TestRuleEngineWithKnownIssues
+          
+          # Run comprehensive validation
+          go test -v -tags=integration ./pkg/testing -run TestComprehensiveSOAPValidation
+          
+          echo "✅ Comprehensive regression test passed"
+
+      - name: Generate Regression Report
+        if: always()
+        run: |
+          echo "📊 Generating regression prevention report..."
+          
+          cat > regression-report.md << 'EOF'
+          # SOAP Regression Prevention Report
+          
+          ## Changes Detected
+          - Templates Changed: ${{ needs.detect-soap-changes.outputs.templates-changed }}
+          - SOAP Package Changed: ${{ needs.detect-soap-changes.outputs.soap-changed }}  
+          - Generator Changed: ${{ needs.detect-soap-changes.outputs.generator-changed }}
+          - Fixtures Changed: ${{ needs.detect-soap-changes.outputs.fixtures-changed }}
+          
+          ## Validation Results
+          - Template Validation: ${{ needs.template-change-validation.result || 'skipped' }}
+          - SOAP Package Validation: ${{ needs.soap-package-validation.result || 'skipped' }}
+          - Generator Validation: ${{ needs.generator-core-validation.result || 'skipped' }}
+          
+          ## Issues Prevented
+          This validation prevents:
+          - RPC namespace issues (tns:operation vs operation xmlns="...")
+          - SOAP envelope malformation
+          - XML marshaling regressions
+          - Template rendering errors
+          - Generator logic breaks
+          
+          ## Recommendation
+          ${{ job.status == 'success' && '✅ All regression tests passed - safe to merge' || '❌ Regression detected - review required' }}
+          
+          Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          EOF
+
+      - name: Upload Regression Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soap-regression-report
+          path: regression-report.md
+
+      - name: Comment Regression Results
+        if: github.event_name == 'pull_request' && always()
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-tag: soap-regression
+          pr-number: ${{ github.event.pull_request.number }}
+          message: |
+            ## 🛡️ SOAP Regression Prevention Results
+            
+            ### Changes Detected:
+            - **Templates**: ${{ needs.detect-soap-changes.outputs.templates-changed == 'true' && '⚠️ Changed' || '✅ No changes' }}
+            - **SOAP Package**: ${{ needs.detect-soap-changes.outputs.soap-changed == 'true' && '⚠️ Changed' || '✅ No changes' }}
+            - **Generator Core**: ${{ needs.detect-soap-changes.outputs.generator-changed == 'true' && '⚠️ Changed' || '✅ No changes' }}
+            
+            ### Validation Status:
+            - **Template Validation**: ${{ needs.template-change-validation.result || 'skipped' }}
+            - **SOAP Validation**: ${{ needs.soap-package-validation.result || 'skipped' }}
+            - **Generator Validation**: ${{ needs.generator-core-validation.result || 'skipped' }}
+            - **Regression Test**: ${{ job.status }}
+            
+            ### 🎯 Issues Prevented:
+            - RPC namespace problems (`<tns:operation>` vs `<operation xmlns="...">`)
+            - SOAP envelope malformation
+            - XML marshaling regressions
+            - Template rendering errors
+            
+            ${{ job.status == 'success' && '✅ **All regression tests passed - safe to merge**' || '❌ **Regression detected - review required**' }}
