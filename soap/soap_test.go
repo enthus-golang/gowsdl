@@ -121,7 +121,7 @@ func TestClient_Send_Correct_Headers(t *testing.T) {
 				gotHeaders = r.Header.Clone() // Clone to avoid race conditions
 				// Write a minimal SOAP response to avoid errors
 				w.Header().Set("Content-Type", "text/xml")
-				w.Write([]byte(`<?xml version="1.0"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body></soap:Body></soap:Envelope>`))
+				_, _ = w.Write([]byte(`<?xml version="1.0"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body></soap:Body></soap:Envelope>`))
 			}))
 			defer ts.Close()
 			
