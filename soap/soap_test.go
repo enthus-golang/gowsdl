@@ -112,24 +112,39 @@ func TestClient_Send_Correct_Headers(t *testing.T) {
 		},
 	}
 
-	var gotHeaders http.Header
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotHeaders = r.Header
-	}))
-	defer ts.Close()
-
 	for _, test := range tests {
-		client := NewClient(ts.URL, WithHTTPHeaders(test.reqHeaders))
-		req := struct{}{}
-		reply := struct{}{}
-		_ = client.Call(test.action, req, reply)
-
-		for k, v := range test.expectedHeaders {
-			h := gotHeaders.Get(k)
-			if h != v {
-				t.Errorf("got %s wanted %s", h, v)
+		t.Run(test.action, func(t *testing.T) {
+			var gotHeaders http.Header
+			requestReceived := false
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requestReceived = true
+				gotHeaders = r.Header.Clone() // Clone to avoid race conditions
+				// Write a minimal SOAP response to avoid errors
+				w.Header().Set("Content-Type", "text/xml")
+				w.Write([]byte(`<?xml version="1.0"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body></soap:Body></soap:Envelope>`))
+			}))
+			defer ts.Close()
+			
+			client := NewClient(ts.URL, WithHTTPHeaders(test.reqHeaders))
+			req := &Ping{Request: &PingRequest{Message: "test"}}
+			reply := &PingResponse{}
+			err := client.Call(test.action, req, reply)
+			
+			if err != nil {
+				t.Fatalf("Call failed: %v", err)
 			}
-		}
+			
+			if !requestReceived {
+				t.Fatal("Request was not received by server")
+			}
+
+			for k, v := range test.expectedHeaders {
+				h := gotHeaders.Get(k)
+				if h != v {
+					t.Errorf("got '%s' wanted '%s' for header %s", h, v, k)
+				}
+			}
+		})
 	}
 }
 

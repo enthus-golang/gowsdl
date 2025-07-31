@@ -115,10 +115,10 @@ func TestClient_Methods(t *testing.T) {
 
 func TestSOAPBodyResponse_UnmarshalXML_Simple(t *testing.T) {
 	// Test nil content error
-	body := &SOAPBodyResponse{Content: nil}
+	body := &SOAPBodyResponse{Body: nil}
 	err := xml.Unmarshal([]byte("<Body></Body>"), body)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Content must be a pointer to a struct")
+	assert.Contains(t, err.Error(), "Body must be a pointer to a struct")
 	
 	// Test proper SOAP body unmarshal
 	type TestValue struct {
@@ -127,7 +127,7 @@ func TestSOAPBodyResponse_UnmarshalXML_Simple(t *testing.T) {
 	}
 	
 	body2 := &SOAPBodyResponse{
-		Content: &TestValue{},
+		Body: &TestValue{},
 		Fault:   &SOAPFault{},
 	}
 	
@@ -136,12 +136,12 @@ func TestSOAPBodyResponse_UnmarshalXML_Simple(t *testing.T) {
 	err = xml.Unmarshal([]byte(xmlData), body2)
 	assert.NoError(t, err)
 	
-	content := body2.Content.(*TestValue)
+	content := body2.Body.(*TestValue)
 	assert.Equal(t, "test", content.Value)
 	
 	// Test SOAP fault unmarshal
 	body3 := &SOAPBodyResponse{
-		Content: &TestValue{},
+		Body: &TestValue{},
 		Fault:   &SOAPFault{},
 	}
 	
@@ -157,5 +157,5 @@ func TestSOAPBodyResponse_UnmarshalXML_Simple(t *testing.T) {
 	assert.True(t, body3.Fault != nil)
 	assert.Equal(t, "Server", body3.Fault.Code)
 	assert.Equal(t, "Test error", body3.Fault.String)
-	assert.Nil(t, body3.Content) // Content should be nil when fault occurs
+	assert.Nil(t, body3.Body) // Body should be nil when fault occurs
 }
