@@ -1,0 +1,7 @@
+{
+  "operation": "GetUserDetails",
+  "userId": "user123",
+  "includeAddresses": true,
+  "includeMetadata": true,
+  "description": "Complex RPC request with nested types, arrays, and optional elements"
+}

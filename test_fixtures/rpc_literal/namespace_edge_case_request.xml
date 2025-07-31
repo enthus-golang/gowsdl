@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <information xmlns="http://example.com/namespace-test">
+      <dataId>test123</dataId>
+      <includeDetails>true</includeDetails>
+    </information>
+  </soap:Body>
+</soap:Envelope>

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:tns="http://example.com/namespace-test"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/namespace-test">
+             
+  <types>
+    <xsd:schema targetNamespace="http://example.com/namespace-test">
+      <xsd:complexType name="InformationRequest">
+        <xsd:sequence>
+          <xsd:element name="dataId" type="xsd:string"/>
+          <xsd:element name="includeDetails" type="xsd:boolean"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      
+      <xsd:complexType name="InformationResponse">
+        <xsd:sequence>
+          <xsd:element name="data" type="xsd:string"/>
+          <xsd:element name="status" type="xsd:string"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:schema>
+  </types>
+  
+  <message name="InformationRequestMessage">
+    <part name="parameters" type="tns:InformationRequest"/>
+  </message>
+  <message name="InformationResponseMessage">
+    <part name="parameters" type="tns:InformationResponse"/>
+  </message>
+  
+  <portType name="InformationServicePortType">
+    <operation name="information">
+      <documentation>This operation specifically tests the namespace issue that was fixed</documentation>
+      <input message="tns:InformationRequestMessage"/>
+      <output message="tns:InformationResponseMessage"/>
+    </operation>
+  </portType>
+  
+  <binding name="InformationServiceBinding" type="tns:InformationServicePortType">
+    <soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="information">
+      <soap:operation soapAction="http://example.com/namespace-test/information"/>
+      <input>
+        <soap:body use="literal" namespace="http://example.com/namespace-test"/>
+      </input>
+      <output>
+        <soap:body use="literal" namespace="http://example.com/namespace-test"/>
+      </output>
+    </operation>
+  </binding>
+  
+  <service name="InformationService">
+    <documentation>Service designed to test RPC namespace handling</documentation>
+    <port name="InformationServicePort" binding="tns:InformationServiceBinding">
+      <soap:address location="http://example.com/namespace-test/service"/>
+    </port>
+  </service>
+</definitions>

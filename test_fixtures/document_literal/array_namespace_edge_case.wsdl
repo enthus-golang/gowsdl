@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:tns="http://example.com/array-edge-case"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/array-edge-case">
+             
+  <types>
+    <xsd:schema targetNamespace="http://example.com/array-edge-case"
+                xmlns:arr="http://example.com/arrays">
+      
+      <!-- Test mixed namespaces and array handling -->
+      <xsd:element name="ProcessArrayRequest">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="stringArray" type="tns:StringArray"/>
+            <xsd:element name="intArray" type="tns:IntArray" minOccurs="0"/>
+            <xsd:element name="emptyArray" type="tns:EmptyArray" minOccurs="0"/>
+            <xsd:element name="nestedArrays" type="tns:NestedArrayContainer" minOccurs="0"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      
+      <xsd:complexType name="StringArray">
+        <xsd:sequence>
+          <xsd:element name="item" type="xsd:string" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      
+      <xsd:complexType name="IntArray">
+        <xsd:sequence>
+          <xsd:element name="value" type="xsd:int" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      
+      <xsd:complexType name="EmptyArray">
+        <xsd:sequence>
+          <xsd:element name="placeholder" type="xsd:string" minOccurs="0" maxOccurs="0"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      
+      <xsd:complexType name="NestedArrayContainer">
+        <xsd:sequence>
+          <xsd:element name="level1" maxOccurs="unbounded">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="name" type="xsd:string"/>
+                <xsd:element name="level2" maxOccurs="unbounded">
+                  <xsd:complexType>
+                    <xsd:sequence>
+                      <xsd:element name="id" type="xsd:string"/>
+                      <xsd:element name="values" type="xsd:string" maxOccurs="unbounded"/>
+                    </xsd:sequence>
+                  </xsd:complexType>
+                </xsd:element>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      
+      <xsd:element name="ProcessArrayResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="processedCount" type="xsd:int"/>
+            <xsd:element name="results" type="tns:ResultArray"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      
+      <xsd:complexType name="ResultArray">
+        <xsd:sequence>
+          <xsd:element name="result" type="xsd:string" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:schema>
+  </types>
+  
+  <message name="ProcessArrayRequestMessage">
+    <part name="parameters" element="tns:ProcessArrayRequest"/>
+  </message>
+  <message name="ProcessArrayResponseMessage">
+    <part name="parameters" element="tns:ProcessArrayResponse"/>
+  </message>
+  
+  <portType name="ArrayProcessingServicePortType">
+    <operation name="ProcessArrays">
+      <documentation>Tests complex array handling with nested structures and edge cases</documentation>
+      <input message="tns:ProcessArrayRequestMessage"/>
+      <output message="tns:ProcessArrayResponseMessage"/>
+    </operation>
+  </portType>
+  
+  <binding name="ArrayProcessingServiceBinding" type="tns:ArrayProcessingServicePortType">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="ProcessArrays">
+      <soap:operation soapAction="http://example.com/array-edge-case/ProcessArrays"/>
+      <input>
+        <soap:body use="literal"/>
+      </input>
+      <output>
+        <soap:body use="literal"/>
+      </output>
+    </operation>
+  </binding>
+  
+  <service name="ArrayProcessingService">
+    <documentation>Service for testing complex array and namespace scenarios</documentation>
+    <port name="ArrayProcessingServicePort" binding="tns:ArrayProcessingServiceBinding">
+      <soap:address location="http://example.com/array-edge-case/service"/>
+    </port>
+  </service>
+</definitions>

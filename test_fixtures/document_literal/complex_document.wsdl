@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:tns="http://example.com/complex-document"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/complex-document">
+             
+  <types>
+    <xsd:schema targetNamespace="http://example.com/complex-document">
+      <!-- Complex request with optional elements and arrays -->
+      <xsd:element name="ProcessOrderRequest">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="orderId" type="xsd:string"/>
+            <xsd:element name="customerId" type="xsd:string"/>
+            <xsd:element name="items" type="tns:OrderItemArray"/>
+            <xsd:element name="shippingAddress" type="tns:Address"/>
+            <xsd:element name="billingAddress" type="tns:Address" minOccurs="0"/>
+            <xsd:element name="options" type="tns:ProcessingOptions" minOccurs="0"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      
+      <xsd:element name="ProcessOrderResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="success" type="xsd:boolean"/>
+            <xsd:element name="orderNumber" type="xsd:string" minOccurs="0"/>
+            <xsd:element name="errors" type="tns:ErrorArray" minOccurs="0"/>
+            <xsd:element name="estimatedDelivery" type="xsd:dateTime" minOccurs="0"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      
+      <xsd:complexType name="OrderItem">
+        <xsd:sequence>
+          <xsd:element name="productId" type="xsd:string"/>
+          <xsd:element name="quantity" type="xsd:int"/>
+          <xsd:element name="unitPrice" type="xsd:decimal"/>
+          <xsd:element name="customizations" type="xsd:string" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      
+      <xsd:complexType name="OrderItemArray">
+        <xsd:sequence>
+          <xsd:element name="item" type="tns:OrderItem" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      
+      <xsd:complexType name="Address">
+        <xsd:sequence>
+          <xsd:element name="name" type="xsd:string"/>
+          <xsd:element name="street1" type="xsd:string"/>
+          <xsd:element name="street2" type="xsd:string" minOccurs="0"/>
+          <xsd:element name="city" type="xsd:string"/>
+          <xsd:element name="state" type="xsd:string"/>
+          <xsd:element name="zipCode" type="xsd:string"/>
+          <xsd:element name="country" type="xsd:string"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      
+      <xsd:complexType name="ProcessingOptions">
+        <xsd:sequence>
+          <xsd:element name="expedited" type="xsd:boolean" default="false"/>
+          <xsd:element name="giftWrap" type="xsd:boolean" default="false"/>
+          <xsd:element name="giftMessage" type="xsd:string" minOccurs="0"/>
+          <xsd:element name="specialInstructions" type="xsd:string" minOccurs="0"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      
+      <xsd:complexType name="ErrorInfo">
+        <xsd:sequence>
+          <xsd:element name="code" type="xsd:string"/>
+          <xsd:element name="message" type="xsd:string"/>
+          <xsd:element name="field" type="xsd:string" minOccurs="0"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      
+      <xsd:complexType name="ErrorArray">
+        <xsd:sequence>
+          <xsd:element name="error" type="tns:ErrorInfo" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:schema>
+  </types>
+  
+  <message name="ProcessOrderRequestMessage">
+    <part name="parameters" element="tns:ProcessOrderRequest"/>
+  </message>
+  <message name="ProcessOrderResponseMessage">
+    <part name="parameters" element="tns:ProcessOrderResponse"/>
+  </message>
+  
+  <portType name="OrderProcessingServicePortType">
+    <operation name="ProcessOrder">
+      <documentation>Processes a complex order with multiple items and addresses</documentation>
+      <input message="tns:ProcessOrderRequestMessage"/>
+      <output message="tns:ProcessOrderResponseMessage"/>
+    </operation>
+  </portType>
+  
+  <binding name="OrderProcessingServiceBinding" type="tns:OrderProcessingServicePortType">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="ProcessOrder">
+      <soap:operation soapAction="http://example.com/complex-document/ProcessOrder"/>
+      <input>
+        <soap:body use="literal"/>
+      </input>
+      <output>
+        <soap:body use="literal"/>
+      </output>
+    </operation>
+  </binding>
+  
+  <service name="OrderProcessingService">
+    <documentation>Service for processing complex orders with detailed validation</documentation>
+    <port name="OrderProcessingServicePort" binding="tns:OrderProcessingServiceBinding">
+      <soap:address location="http://example.com/complex-document/service"/>
+    </port>
+  </service>
+</definitions>

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:tns="http://example.com/complex-rpc"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/complex-rpc">
+             
+  <types>
+    <xsd:schema targetNamespace="http://example.com/complex-rpc">
+      <!-- Complex types with nested elements -->
+      <xsd:complexType name="UserInfo">
+        <xsd:sequence>
+          <xsd:element name="userId" type="xsd:string"/>
+          <xsd:element name="userName" type="xsd:string"/>
+          <xsd:element name="email" type="xsd:string" minOccurs="0"/>
+          <xsd:element name="addresses" type="tns:AddressArray" minOccurs="0"/>
+          <xsd:element name="metadata" type="tns:MetadataMap" minOccurs="0"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      
+      <xsd:complexType name="Address">
+        <xsd:sequence>
+          <xsd:element name="street" type="xsd:string"/>
+          <xsd:element name="city" type="xsd:string"/>
+          <xsd:element name="zipCode" type="xsd:string"/>
+          <xsd:element name="country" type="xsd:string" default="US"/>
+        </xsd:sequence>
+        <xsd:attribute name="type" type="xsd:string" use="required"/>
+      </xsd:complexType>
+      
+      <xsd:complexType name="AddressArray">
+        <xsd:sequence>
+          <xsd:element name="address" type="tns:Address" maxOccurs="unbounded"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      
+      <xsd:complexType name="MetadataMap">
+        <xsd:sequence>
+          <xsd:element name="entry" maxOccurs="unbounded">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="key" type="xsd:string"/>
+                <xsd:element name="value" type="xsd:string"/>
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+      
+      <!-- Request/Response types -->
+      <xsd:complexType name="GetUserDetailsRequest">
+        <xsd:sequence>
+          <xsd:element name="userId" type="xsd:string"/>
+          <xsd:element name="includeAddresses" type="xsd:boolean" default="false"/>
+          <xsd:element name="includeMetadata" type="xsd:boolean" default="false"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      
+      <xsd:complexType name="GetUserDetailsResponse">
+        <xsd:sequence>
+          <xsd:element name="userInfo" type="tns:UserInfo"/>
+          <xsd:element name="success" type="xsd:boolean"/>
+          <xsd:element name="errorMessage" type="xsd:string" minOccurs="0"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:schema>
+  </types>
+  
+  <message name="GetUserDetailsRequestMessage">
+    <part name="parameters" type="tns:GetUserDetailsRequest"/>
+  </message>
+  <message name="GetUserDetailsResponseMessage">
+    <part name="parameters" type="tns:GetUserDetailsResponse"/>
+  </message>
+  
+  <portType name="ComplexUserServicePortType">
+    <operation name="GetUserDetails">
+      <documentation>Retrieves detailed user information including addresses and metadata</documentation>
+      <input message="tns:GetUserDetailsRequestMessage"/>
+      <output message="tns:GetUserDetailsResponseMessage"/>
+    </operation>
+  </portType>
+  
+  <binding name="ComplexUserServiceBinding" type="tns:ComplexUserServicePortType">
+    <soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="GetUserDetails">
+      <soap:operation soapAction="http://example.com/complex-rpc/GetUserDetails"/>
+      <input>
+        <soap:body use="literal" namespace="http://example.com/complex-rpc"/>
+      </input>
+      <output>
+        <soap:body use="literal" namespace="http://example.com/complex-rpc"/>
+      </output>
+    </operation>
+  </binding>
+  
+  <service name="ComplexUserService">
+    <documentation>Service for managing complex user data</documentation>
+    <port name="ComplexUserServicePort" binding="tns:ComplexUserServiceBinding">
+      <soap:address location="http://example.com/complex-rpc/service"/>
+    </port>
+  </service>
+</definitions>

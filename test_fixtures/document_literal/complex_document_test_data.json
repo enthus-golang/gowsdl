@@ -1,0 +1,22 @@
+{
+  "operation": "ProcessOrder",
+  "orderId": "ORD-2024-001",
+  "customerId": "CUST-12345",
+  "items": [
+    {
+      "productId": "PROD-ABC",
+      "quantity": 2,
+      "unitPrice": 29.99,
+      "customizations": ["Color: Blue", "Size: Large"]
+    },
+    {
+      "productId": "PROD-XYZ", 
+      "quantity": 1,
+      "unitPrice": 49.99
+    }
+  ],
+  "expedited": true,
+  "giftWrap": false,
+  "specialInstructions": "Leave at front door",
+  "description": "Complex document-literal request with nested arrays, optional elements, and multiple addresses"
+}
