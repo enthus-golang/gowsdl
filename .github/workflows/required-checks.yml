@@ -83,8 +83,6 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const { context, github } = require('@actions/github');
-            
             const state = '${{ job.status }}' === 'success' ? 'success' : 'failure';
             const description = state === 'success' 
               ? 'SOAP request validation passed - safe to merge'
