@@ -520,7 +520,7 @@ const TypesTemplate = `
 				{{if eq .Name $inputMsgName}}
 					// Operation wrapper for {{$opName | makePublic}}.
 					type Operation{{$opName | makePublic}}In struct {
-						XMLName xml.Name ` + "`" + `xml:"tns:{{$opName}}"` + "`" + `
+						XMLName xml.Name ` + "`" + `xml:"{{getTargetNamespace}} {{$opName}}"` + "`" + `
 						
 						{{range .Parts}}
 							{{$partName := .Name | replaceReservedWords | makePublic}}
@@ -541,7 +541,7 @@ const TypesTemplate = `
 				{{if eq .Name $outputMsgName}}
 					// Operation wrapper for {{$opName | makePublic}}.
 					type Operation{{$opName | makePublic}}Out struct {
-						XMLName xml.Name ` + "`" + `xml:"{{$opName}}Response"` + "`" + `
+						XMLName xml.Name ` + "`" + `xml:"{{getTargetNamespace}} {{$opName}}Response"` + "`" + `
 						
 						{{range .Parts}}
 							{{$partName := .Name | replaceReservedWords | makePublic}}
