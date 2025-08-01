@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ProcessArrayRequest xmlns="http://example.com/array-edge-case">
+      <stringArray>
+        <item>first</item>
+        <item>second</item>
+        <item>third</item>
+      </stringArray>
+      <intArray>
+        <value>1</value>
+        <value>2</value>
+        <value>3</value>
+      </intArray>
+      <emptyArray/>
+      <nestedArrays>
+        <level1>
+          <name>Group A</name>
+          <level2>
+            <id>A1</id>
+            <values>val1</values>
+            <values>val2</values>
+          </level2>
+          <level2>
+            <id>A2</id>
+            <values>val3</values>
+          </level2>
+        </level1>
+        <level1>
+          <name>Group B</name>
+          <level2>
+            <id>B1</id>
+            <values>val4</values>
+            <values>val5</values>
+            <values>val6</values>
+          </level2>
+        </level1>
+      </nestedArrays>
+    </ProcessArrayRequest>
+  </soap:Body>
+</soap:Envelope>

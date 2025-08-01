@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ProcessOrderRequest xmlns="http://example.com/complex-document">
+      <orderId>ORD-2024-001</orderId>
+      <customerId>CUST-12345</customerId>
+      <items>
+        <item>
+          <productId>PROD-ABC</productId>
+          <quantity>2</quantity>
+          <unitPrice>29.99</unitPrice>
+          <customizations>Color: Blue</customizations>
+          <customizations>Size: Large</customizations>
+        </item>
+        <item>
+          <productId>PROD-XYZ</productId>
+          <quantity>1</quantity>
+          <unitPrice>49.99</unitPrice>
+        </item>
+      </items>
+      <shippingAddress>
+        <name>John Doe</name>
+        <street1>123 Main St</street1>
+        <street2>Apt 4B</street2>
+        <city>Anytown</city>
+        <state>CA</state>
+        <zipCode>12345</zipCode>
+        <country>US</country>
+      </shippingAddress>
+      <billingAddress>
+        <name>John Doe</name>
+        <street1>456 Oak Ave</street1>
+        <city>Otherville</city>
+        <state>CA</state>
+        <zipCode>67890</zipCode>
+        <country>US</country>
+      </billingAddress>
+      <options>
+        <expedited>true</expedited>
+        <giftWrap>false</giftWrap>
+        <specialInstructions>Leave at front door</specialInstructions>
+      </options>
+    </ProcessOrderRequest>
+  </soap:Body>
+</soap:Envelope>

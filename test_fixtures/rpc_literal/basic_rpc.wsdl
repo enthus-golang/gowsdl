@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:tns="http://example.com/rpc"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             targetNamespace="http://example.com/rpc">
+
+  <types>
+    <xsd:schema targetNamespace="http://example.com/rpc">
+      <xsd:complexType name="UserInfo">
+        <xsd:sequence>
+          <xsd:element name="id" type="xsd:int"/>
+          <xsd:element name="name" type="xsd:string"/>
+          <xsd:element name="email" type="xsd:string"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:schema>
+  </types>
+
+  <message name="getUserRequest">
+    <part name="userId" type="xsd:int"/>
+    <part name="includeDetails" type="xsd:boolean"/>
+  </message>
+  
+  <message name="getUserResponse">
+    <part name="return" type="tns:UserInfo"/>
+  </message>
+
+  <portType name="UserRPCServicePort">
+    <operation name="getUser">
+      <input message="tns:getUserRequest"/>
+      <output message="tns:getUserResponse"/>
+    </operation>
+  </portType>
+
+  <binding name="UserRPCServiceBinding" type="tns:UserRPCServicePort">
+    <soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="getUser">
+      <soap:operation soapAction="http://example.com/getUser"/>
+      <input>
+        <soap:body use="literal" namespace="http://example.com/rpc"/>
+      </input>
+      <output>
+        <soap:body use="literal" namespace="http://example.com/rpc"/>
+      </output>
+    </operation>
+  </binding>
+
+  <service name="UserRPCService">
+    <port name="UserRPCServicePort" binding="tns:UserRPCServiceBinding">
+      <soap:address location="http://example.com/userrpcservice"/>
+    </port>
+  </service>
+
+</definitions>

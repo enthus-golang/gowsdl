@@ -1,0 +1,6 @@
+{
+  "operation": "information",
+  "dataId": "test123", 
+  "includeDetails": true,
+  "description": "This fixture specifically tests the RPC namespace issue that was fixed - should use xmlns not tns:prefix"
+}

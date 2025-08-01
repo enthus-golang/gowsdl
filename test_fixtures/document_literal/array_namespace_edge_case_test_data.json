@@ -1,0 +1,22 @@
+{
+  "operation": "ProcessArrays",
+  "stringArray": ["first", "second", "third"],
+  "intArray": [1, 2, 3],
+  "emptyArray": [],
+  "nestedArrays": [
+    {
+      "name": "Group A",
+      "level2": [
+        {"id": "A1", "values": ["val1", "val2"]},
+        {"id": "A2", "values": ["val3"]}
+      ]
+    },
+    {
+      "name": "Group B", 
+      "level2": [
+        {"id": "B1", "values": ["val4", "val5", "val6"]}
+      ]
+    }
+  ],
+  "description": "Edge case testing for complex nested arrays, empty arrays, and namespace handling"
+}

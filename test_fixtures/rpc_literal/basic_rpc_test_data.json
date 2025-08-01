@@ -1,0 +1,14 @@
+{
+  "operation": "getUser",
+  "request": {
+    "userId": 123,
+    "includeDetails": true
+  },
+  "expectedResponse": {
+    "return": {
+      "id": 123,
+      "name": "John Doe",
+      "email": "john.doe@example.com"
+    }
+  }
+}

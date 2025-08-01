@@ -1,0 +1,143 @@
+name: Required Checks
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  checks: write
+  statuses: write
+
+jobs:
+  soap-request-validation-check:
+    name: SOAP Request Validation (Required)
+    runs-on: ubuntu-latest
+    # Skip job if PR is draft or has WIP in title
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && !contains(github.event.pull_request.title, 'WIP'))
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+          cache: true
+
+      - name: Download go modules
+        run: go mod download
+
+      - name: Run Critical SOAP Validation Tests
+        run: |
+          echo "🔒 Running critical SOAP validation tests for merge approval..."
+          
+          # These tests MUST pass for PR approval
+          echo "1️⃣ Testing SOAP capture framework..."
+          go test -v ./pkg/testing -run TestSOAPCapture
+          
+          echo "2️⃣ Testing XML comparison..."
+          go test -v ./pkg/testing -run TestXMLComparator
+          
+          echo "3️⃣ Testing fixture loading..."
+          go test -v ./pkg/testing -run TestSOAPRequestFixtures
+          
+          echo "4️⃣ Testing RPC validation rules (critical for namespace issues)..."
+          go test -v -tags=integration ./pkg/testing -run TestRuleEngineWithKnownIssues
+          
+          echo "✅ All critical SOAP validation tests passed"
+
+      - name: Validate Against Known Issues
+        run: |
+          echo "🎯 Validating protection against known SOAP issues..."
+          
+          # This test ensures we catch the RPC namespace issue
+          go test -v -tags=integration ./pkg/testing -run TestFixtureValidationIntegration
+          
+          echo "✅ Protection against known issues validated"
+
+      - name: Quick Fixture Smoke Test
+        run: |
+          echo "💨 Running quick fixture smoke test..."
+          
+          # Ensure at least basic fixtures exist and load
+          if [ ! -f "test_fixtures/document_literal/simple.wsdl" ]; then
+            echo "❌ Missing critical document literal fixture"
+            exit 1
+          fi
+          
+          if [ ! -f "test_fixtures/rpc_literal/basic_rpc.wsdl" ]; then
+            echo "❌ Missing critical RPC literal fixture"
+            exit 1
+          fi
+          
+          echo "✅ Critical fixtures validated"
+
+      - name: Set Status Check
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const state = '${{ job.status }}' === 'success' ? 'success' : 'failure';
+            const description = state === 'success' 
+              ? 'SOAP request validation passed - safe to merge'
+              : 'SOAP request validation failed - review required';
+            
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: state,
+              context: 'SOAP Request Validation',
+              description: description,
+              target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            });
+
+  integration-smoke-test:
+    name: Integration Smoke Test
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && !contains(github.event.pull_request.title, 'WIP'))
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+          cache: true
+
+      - name: Quick Integration Test
+        run: |
+          echo "🚀 Running integration smoke test..."
+          
+          # Test that our framework integrates with existing tests
+          go test -v -tags=integration ./pkg/testing -run TestComprehensiveSOAPValidation -timeout=30s
+          
+          echo "✅ Integration smoke test passed"
+
+  required-checks-summary:
+    name: Required Checks Summary
+    runs-on: ubuntu-latest
+    needs: [soap-request-validation-check, integration-smoke-test]
+    if: always()
+    
+    steps:
+      - name: Check Results
+        run: |
+          echo "📊 Required Checks Summary:"
+          echo "SOAP Request Validation: ${{ needs.soap-request-validation-check.result }}"
+          echo "Integration Smoke Test: ${{ needs.integration-smoke-test.result }}"
+          
+          if [ "${{ needs.soap-request-validation-check.result }}" != "success" ] || [ "${{ needs.integration-smoke-test.result }}" != "success" ]; then
+            echo "❌ Required checks failed - blocking merge"
+            exit 1
+          else
+            echo "✅ All required checks passed - safe to merge"
+          fi

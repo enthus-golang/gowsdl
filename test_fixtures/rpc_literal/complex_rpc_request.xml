@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <GetUserDetails xmlns="http://example.com/complex-rpc">
+      <userId>user123</userId>
+      <includeAddresses>true</includeAddresses>
+      <includeMetadata>true</includeMetadata>
+    </GetUserDetails>
+  </soap:Body>
+</soap:Envelope>

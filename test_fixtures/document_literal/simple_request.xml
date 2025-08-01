@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <GetUserRequest xmlns="http://example.com/simple">
+      <userId>123</userId>
+      <includeDetails>true</includeDetails>
+    </GetUserRequest>
+  </soap:Body>
+</soap:Envelope>
